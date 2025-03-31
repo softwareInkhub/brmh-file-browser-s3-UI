@@ -275,7 +275,7 @@ You'll need to set up the following environment variables:
 - `AWS_SECRET_ACCESS_KEY` - Your AWS secret key
 - `AWS_BUCKET_NAME` - Your S3 bucket name
 - `AWS_REGION` - The AWS region where your bucket is located (e.g., "ap-northeast-1")
-- `PORT` - (Optional) The port for the server to run on, defaults to 5000 in Replit and 8000 locally
+- `PORT` - (Optional) The port for the server to run on, defaults to 8000 in Replit and 8000 locally
 
 Note: The application also supports the non-prefixed versions (`ACCESS_KEY_ID`, `SECRET_ACCESS_KEY`, etc.) for backward compatibility, but using the AWS-prefixed versions is recommended.
 
@@ -311,7 +311,7 @@ Start the development server with:
 npm run dev
 ```
 
-This will launch both the Express backend and the React frontend. The application will be available at http://localhost:5000.
+This will launch both the Express backend and the React frontend. The application will be available at http://localhost:8000.
 
 ## Project Structure
 

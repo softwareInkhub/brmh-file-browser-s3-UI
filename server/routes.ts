@@ -233,7 +233,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     endpoint: undefined, // Let the SDK construct the correct endpoint based on region
     // Increase timeouts for more reliable operations
     requestHandler: new NodeHttpHandler({
-      connectionTimeout: 5000, // 5 seconds
+      connectionTimeout: 8000, // 5 seconds
       socketTimeout: 30000, // 30 seconds
       httpsAgent: new https.Agent({
         keepAlive: true,

@@ -127,8 +127,8 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // Use PORT environment variable or default to port 5000
-  const port = parseInt(process.env.PORT || '5000', 10);
+  // Use PORT environment variable or default to port 8000
+  const port = parseInt(process.env.PORT || '8000', 10);
   
   // Start the server with simplified configuration
   server.listen(port, () => {
