@@ -4,11 +4,22 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
 // Robust environment variable handling for AWS configuration
-// Support both AWS_ prefixed and non-prefixed variables
-const region = process.env.AWS_REGION || process.env.REGION || 'ap-northeast-1';
-const bucketName = process.env.AWS_BUCKET_NAME || process.env.BUCKET_NAME || 'file-browser';
-const accessKeyId = process.env.AWS_ACCESS_KEY_ID || process.env.ACCESS_KEY_ID || '';
-const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY || process.env.SECRET_ACCESS_KEY || '';
+const region = process.env.AWS_REGION;
+const bucketName = process.env.AWS_BUCKET_NAME;
+const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
+const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
+
+// Validate required environment variables
+if (!region || !bucketName || !accessKeyId || !secretAccessKey) {
+  console.error('Missing required AWS configuration. Please check your .env file.');
+  console.error('Required variables:', {
+    AWS_REGION: region ? '✓' : '✗',
+    AWS_BUCKET_NAME: bucketName ? '✓' : '✗',
+    AWS_ACCESS_KEY_ID: accessKeyId ? '✓' : '✗',
+    AWS_SECRET_ACCESS_KEY: secretAccessKey ? '✓' : '✗'
+  });
+  process.exit(1);
+}
 
 // Log AWS configuration for debugging (safely)
 console.log('AWS Config:', {
@@ -116,26 +127,18 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
-  // Use PORT environment variable or default to port 5000 for Replit
-  // For Replit, always use port 5000 to match the workflow expectations
-  const isReplit = !!process.env.REPL_ID;
-  const port = isReplit ? 5000 : parseInt(process.env.PORT || '8000', 10);
+  // Use PORT environment variable or default to port 5000
+  const port = parseInt(process.env.PORT || '5000', 10);
   
-  // Directly start the server on the specified port
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  })
-  .on('error', (err: any) => {
+  // Start the server with simplified configuration
+  server.listen(port, () => {
+    log(`Server is running on port ${port}`);
+  }).on('error', (err: any) => {
     if (err.code === 'EADDRINUSE') {
       console.error(`Port ${port} is already in use. Please free up port ${port} or configure a different port in the environment.`);
       process.exit(1);
     } else {
       console.error('Server error:', err);
     }
-  })
-  .on('listening', () => {
-    log(`serving on port ${port}`);
   });
 })();

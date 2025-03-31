@@ -726,60 +726,37 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-gray-50">
-      <AppHeader
-        onSearchChange={setSearchTerm}
-        onUploadClick={() => setIsUploadModalOpen(true)}
-      />
-
-      <div className="flex flex-1 overflow-hidden">
-        <Sidebar folders={allFolders} storageInfo={storageInfo} />
-
-        <main className="flex-1 overflow-y-auto bg-white p-4 lg:p-6">
-          <Breadcrumbs path={currentPath} onNavigate={handleNavigate} />
-
-          <ActionBar
-            currentPath={currentPath}
-            viewMode={viewMode}
-            onViewModeChange={setViewMode}
-            onCreateFolder={() => setIsNewFolderModalOpen(true)}
-            onSort={handleSort}
-            sortBy={sortBy}
-            sortDirection={sortDirection}
-            availableFileTypes={availableFileTypes}
-            selectedFileType={selectedFileType}
-            onFileTypeChange={handleFileTypeChange}
+    <div className="min-h-screen">
+      <AppHeader />
+      <div className="pt-14">
+        <div className="flex">
+          <Sidebar 
+            folders={allFolders} 
+            storageInfo={storageInfo}
           />
+          <main className="flex-1 ml-0 md:ml-64 min-h-[calc(100vh-56px)]">
+            <Breadcrumbs path={currentPath} onNavigate={handleNavigate} />
 
-          {isLoading ? (
-            <div className="flex justify-center items-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-            </div>
-          ) : !hasContent ? (
-            <div className="text-center py-12">
-              <div className="mx-auto h-24 w-24 text-gray-400">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="h-full w-full"
-                >
-                  <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z" />
-                </svg>
+            <ActionBar
+              currentPath={currentPath}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              onCreateFolder={() => setIsNewFolderModalOpen(true)}
+              onSort={handleSort}
+              sortBy={sortBy}
+              sortDirection={sortDirection}
+              availableFileTypes={availableFileTypes}
+              selectedFileType={selectedFileType}
+              onFileTypeChange={handleFileTypeChange}
+            />
+
+            {isLoading ? (
+              <div className="flex justify-center items-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
               </div>
-              <h3 className="mt-2 text-base font-medium text-gray-900">No files here</h3>
-              <p className="mt-1 text-sm text-gray-500">
-                Get started by uploading a file or creating a folder.
-              </p>
-              <div className="mt-6">
-                <button
-                  onClick={() => setIsUploadModalOpen(true)}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
-                >
+            ) : !hasContent ? (
+              <div className="text-center py-12">
+                <div className="mx-auto h-24 w-24 text-gray-400">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     viewBox="0 0 24 24"
@@ -788,43 +765,66 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
                     strokeWidth="2"
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    className="mr-2 h-4 w-4"
+                    className="h-full w-full"
                   >
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                    <polyline points="17 8 12 3 7 8" />
-                    <line x1="12" y1="3" x2="12" y2="15" />
+                    <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z" />
                   </svg>
-                  Upload Files
-                </button>
+                </div>
+                <h3 className="mt-2 text-base font-medium text-gray-900">No files here</h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  Get started by uploading a file or creating a folder.
+                </p>
+                <div className="mt-6">
+                  <button
+                    onClick={() => setIsUploadModalOpen(true)}
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="mr-2 h-4 w-4"
+                    >
+                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                      <polyline points="17 8 12 3 7 8" />
+                      <line x1="12" y1="3" x2="12" y2="15" />
+                    </svg>
+                    Upload Files
+                  </button>
+                </div>
               </div>
-            </div>
-          ) : viewMode === "grid" ? (
-            <FileGrid
-              files={sortedFiles}
-              folders={sortedFolders}
-              onFileClick={handleFileClick}
-              onFolderClick={handleFolderClick}
-              onFileContextMenu={handleContextMenu}
-              onFolderContextMenu={handleContextMenu}
-              onDrop={handleFileDrop}
-              currentPath={currentPath}
-            />
-          ) : (
-            <FileList
-              files={sortedFiles}
-              folders={sortedFolders}
-              onFileClick={handleFileClick}
-              onFolderClick={handleFolderClick}
-              onFileContextMenu={handleContextMenu}
-              onFolderContextMenu={handleContextMenu}
-              sortBy={sortBy}
-              sortDirection={sortDirection}
-              onSort={handleSort}
-              onDrop={handleFileDrop}
-              currentPath={currentPath}
-            />
-          )}
-        </main>
+            ) : viewMode === "grid" ? (
+              <FileGrid
+                files={sortedFiles}
+                folders={sortedFolders}
+                onFileClick={handleFileClick}
+                onFolderClick={handleFolderClick}
+                onFileContextMenu={handleContextMenu}
+                onFolderContextMenu={handleContextMenu}
+                onDrop={handleFileDrop}
+                currentPath={currentPath}
+              />
+            ) : (
+              <FileList
+                files={sortedFiles}
+                folders={sortedFolders}
+                onFileClick={handleFileClick}
+                onFolderClick={handleFolderClick}
+                onFileContextMenu={handleContextMenu}
+                onFolderContextMenu={handleContextMenu}
+                sortBy={sortBy}
+                sortDirection={sortDirection}
+                onSort={handleSort}
+                onDrop={handleFileDrop}
+                currentPath={currentPath}
+              />
+            )}
+          </main>
+        </div>
       </div>
 
       {/* Modals */}
