@@ -1,0 +1,65 @@
+name: Deploy to AWS
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '20'
+        
+    - name: Install dependencies
+      run: npm install
+      
+    - name: Build application
+      run: npm run build
+      
+    - name: Deploy to AWS
+      uses: appleboy/ssh-action@master
+      with:
+        host: ec2-44-221-32-13.compute-1.amazonaws.com
+        username: ubuntu
+        key: |
+          -----BEGIN RSA PRIVATE KEY-----
+          MIIEowIBAAKCAQEA7jMIIsvre5QNfwCh0SwCk6eGLWaPuzaKmxLuFlLRh7lN9LQ8
+          47rcVDsP4d2tcLM85vjhATTCNzjs7jPAMTig5qW1aU1gClDKwfzARHWzoa2uGfld
+          +xbQGTQwWqXfCECRj45qis5E8ECO4rBiL+Dd58oluajIQTOL4tZQZec4KVmi7m7M
+          0hRDIVj3tpTAx/6638gsfY+rUbS1oOqiodvwlf7mnANOxvErMlUlp9On7R0Li8fc
+          IPY2qzQw4VwNh+GK+dklVgKEBPDVQYxrwxzFl2hgMTX12MALkvs1Hvzt9I5tWhp6
+          b5hhlQdxtCXh4MPbwUsWqlQFifAGWwSuajGtOwIDAQABAoIBAFDWLr+oVq0krIPa
+          UhArkGBNrQKBWOve8aD5BqW6y3L1Fxihhjx+sMFBHf23/mFN4rA77Bg9sF+PSRD5
+          rRLHNguwVuV6pco6auT0gsd47lJDH9+euh85Obwj8vkAa7VgPEXsvgmHQOwL7LHP
+          zDKVbJl6B91/Ax7lgGal9rjuhCe7pSm1hK4NJQcgMupqulU0JustcWeq1pvp8bP7
+          EGz76O2XoSSY38z7I7eNFpNP9/1tP/j3kB++GVooW37+eRNeY708UUuiDTydKR3b
+          sPE7bhUhMKZVww8aU07dA1QCsQTeIoq8VVQKdNiL7vIZXZTlnpGdSXfvM/yE3Cli
+          g8+9lIkCgYEA+gZePHnWAfY0iopg2yMbyqrBW1i5TjT2hj1Rc6jHwGO+SQXJJ56z
+          tRFKVZTLoawN1KTdJ89TRbaVevrKJMBjpAGUxXkajMh1wikLfvWa9PjB7UwaXHeu
+          vtI28yxDZTcFs81jE5BnqN3OhzPGIQepuS97QYGWe5r09DpJ7n+w5m0CgYEA8+RQ
+          5txiFctxecrXZ0MW8LinacHhd8vDAyfrl6WXSpJy6DGdm9DDP7NXDi3d9mB9wSky
+          xObUgN2Uaa/lgfLD3EUBY9uISzsGoNVAVOcOPJRkMr39vKjjI444qKdvkZu89xi6
+          k/QJs/kzpnDax18RXs/I6f19Ehd8tvaynBHxuUcCgYEAkWEAjJOfX5akaGYb+W/J
+          qidttMq7PQFI0zd2VBUwyOp2a4lktJfwEHnUSjzxxrj/dcTDH3HLDr8i3dZTkdkY
+          VvXgZo6LZI7vAg3RtGnlR0oZoPxeW6PvxN8AupbjPUgoFat4T5jo3WTTwQPW0b/d
+          7WLxfV53fLnWcugtsvMmjmUCgYAnXYi5WoTyY53zPIw7/JYtUIClD0gnH9pgHgdm
+          uLGMtcqaM7fuuGlrVLUOctTKuZRSoyWwpllSW3FjBaMTsG1wliq9RWfgTKyrNQBn
+          M8wWdxUdI5Fa7B+NU51Ni4j0haCgeXtT+iW+yNBPYxPM7klNdlhFfEa9rtDQb00w
+          56yObQKBgCATbLe7jhP+fGM9u1shpED6kGkHirUIoNfNawFFI5tvKzj6t1ydkihF
+          fWLGlZ03Ihl+kn7PubVkw6nW7yJeuDOLy0905c2XR5QljpTutspvjp0lG8HoGc7t
+          XmjT2wXQK6LgJH1J+bJ5roScdF1T3G9V1YflsjHfWDngppHUbzzB
+          -----END RSA PRIVATE KEY-----
+        script: |
+          cd /home/ubuntu/brmh-s3-browser
+          git pull origin main
+          npm install
+          npm run build
+          pm2 restart all || pm2 start npm --name "brmh-s3-browser" -- start 
