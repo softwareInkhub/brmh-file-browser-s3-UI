@@ -10,7 +10,7 @@ This guide provides detailed instructions for deploying the S3 File Browser to A
 
 ### Prerequisites for Deployment
 
-Before deploying, make sure you have:dddd
+Before deploying, make sure you have:ddddjkkkkkk
 
 1. Your application code in a Git repository (GitHub, GitLab, or Bitbucket)
 2. An AWS account with an S3 bucket properly configured with CORS

@@ -727,7 +727,10 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
 
   return (
     <div className="min-h-screen">
-      <AppHeader />
+      <AppHeader 
+        onSearchChange={setSearchTerm}
+        onUploadClick={() => setIsUploadModalOpen(true)}
+      />
       <div className="pt-14">
         <div className="flex">
           <Sidebar 
