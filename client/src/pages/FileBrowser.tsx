@@ -2,10 +2,13 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
 import AppHeader from "@/components/file-browser/AppHeader";
 import Sidebar from "@/components/file-browser/Sidebar";
-import Breadcrumbs from "@/components/file-browser/Breadcrumbs";
-import ActionBar from "@/components/file-browser/ActionBar";
-import FileGrid from "@/components/file-browser/FileGrid";
-import FileList from "@/components/file-browser/FileList";
+import TabManager, { Tab } from "@/components/file-browser/TabManager";
+import MyDriveContent from "@/components/file-browser/MyDriveContent";
+import RecentContent from "@/components/file-browser/RecentContent";
+import StarredContent from "@/components/file-browser/StarredContent";
+import SharedContent from "@/components/file-browser/SharedContent";
+import TrashContent from "@/components/file-browser/TrashContent";
+import SettingsContent from "@/components/file-browser/SettingsContent";
 import FilePreviewModal from "@/components/file-browser/FilePreviewModal";
 import UploadModal from "@/components/file-browser/UploadModal";
 import NewFolderModal from "@/components/file-browser/NewFolderModal";
@@ -31,6 +34,17 @@ import {
   dropFiles
 } from "@/lib/s3Service";
 import { S3Object, Position, ViewMode, UploadStatus, S3Folder } from "../types";
+import { Home, Clock, Star, Users, Trash2, Settings } from "lucide-react";
+
+// Tab configuration
+const TAB_CONFIG = {
+  "my-drive": { label: "My Drive", icon: Home },
+  "recent": { label: "Recent", icon: Clock },
+  "starred": { label: "Starred", icon: Star },
+  "shared": { label: "Shared with Me", icon: Users },
+  "trash": { label: "Trash", icon: Trash2 },
+  "settings": { label: "Settings", icon: Settings },
+};
 
 export interface FileBrowserProps {
   initialPrefix?: string;
@@ -43,7 +57,8 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
   const [allFolders, setAllFolders] = useState<S3Folder[]>([]);
   const [currentPath, setCurrentPath] = useState(initialPrefix);
   const [searchTerm, setSearchTerm] = useState("");
-  const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [selectedItem, setSelectedItem] = useState<S3Object | undefined>();
   const [previewUrl, setPreviewUrl] = useState<string | undefined>();
   const [isLoading, setIsLoading] = useState(false);
@@ -67,6 +82,18 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
   const [starredItems, setStarredItems] = useState<Set<string>>(new Set());
   const [selectedFileType, setSelectedFileType] = useState<string>("all");
   const [availableFileTypes, setAvailableFileTypes] = useState<string[]>([]);
+  
+  // Tab management
+  const [tabs, setTabs] = useState<Tab[]>([
+    {
+      id: "my-drive",
+      label: "My Drive",
+      icon: Home,
+      isActive: true
+    }
+  ]);
+  const [activeTabId, setActiveTabId] = useState<string>("my-drive");
+  
   // Track API errors for better error handling
   const [apiError, setApiError] = useState<{
     hasError: boolean;
@@ -86,8 +113,59 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
     percentage: 42,
   });
 
+
+
   const { toast } = useToast();
   const [location, setLocation] = useLocation();
+
+  // Tab handlers
+  const handleTabOpen = (tabId: string) => {
+    const existingTab = tabs.find(tab => tab.id === tabId);
+    if (!existingTab) {
+      const config = TAB_CONFIG[tabId as keyof typeof TAB_CONFIG];
+      if (config) {
+        const newTab: Tab = {
+          id: tabId,
+          label: config.label,
+          icon: config.icon,
+          isActive: false
+        };
+        setTabs(prev => [...prev, newTab]);
+      }
+    }
+    setActiveTabId(tabId);
+    setTabs(prev => prev.map(tab => ({
+      ...tab,
+      isActive: tab.id === tabId
+    })));
+  };
+
+  const handleTabClick = (tabId: string) => {
+    setActiveTabId(tabId);
+    setTabs(prev => prev.map(tab => ({
+      ...tab,
+      isActive: tab.id === tabId
+    })));
+  };
+
+  const handleTabClose = (tabId: string) => {
+    if (tabs.length === 1) return; // Don't close the last tab
+    
+    setTabs(prev => prev.filter(tab => tab.id !== tabId));
+    
+    // If we're closing the active tab, switch to the first remaining tab
+    if (activeTabId === tabId) {
+      const remainingTabs = tabs.filter(tab => tab.id !== tabId);
+      if (remainingTabs.length > 0) {
+        const newActiveTab = remainingTabs[0];
+        setActiveTabId(newActiveTab.id);
+        setTabs(prev => prev.map(tab => ({
+          ...tab,
+          isActive: tab.id === newActiveTab.id
+        })));
+      }
+    }
+  };
 
   // Helper to detect AWS S3 errors
   const isAwsS3Error = (error: Error): boolean => {
@@ -329,6 +407,26 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
       setSortBy(column);
       setSortDirection("asc");
     }
+  };
+
+  // Handle selection
+  const handleSelectAll = () => {
+    const allKeys = [...files, ...folders].map(item => item.key);
+    setSelectedItems(new Set(allKeys));
+  };
+
+  const handleClearSelection = () => {
+    setSelectedItems(new Set());
+  };
+
+  const handleItemSelect = (key: string, isSelected: boolean) => {
+    const newSelected = new Set(selectedItems);
+    if (isSelected) {
+      newSelected.add(key);
+    } else {
+      newSelected.delete(key);
+    }
+    setSelectedItems(newSelected);
   };
   
   // Handle file type filter change
@@ -726,106 +824,62 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-white">
       <AppHeader 
         onSearchChange={setSearchTerm}
         onUploadClick={() => setIsUploadModalOpen(true)}
       />
-      <div className="pt-14">
+      <div className="pt-16">
         <div className="flex">
           <Sidebar 
-            folders={allFolders} 
+            folders={allFolders}
             storageInfo={storageInfo}
+            onNewClick={() => setIsUploadModalOpen(true)}
+            onTabOpen={handleTabOpen}
           />
-          <main className="flex-1 ml-0 md:ml-64 min-h-[calc(100vh-56px)]">
-            <Breadcrumbs path={currentPath} onNavigate={handleNavigate} />
-
-            <ActionBar
-              currentPath={currentPath}
-              viewMode={viewMode}
-              onViewModeChange={setViewMode}
-              onCreateFolder={() => setIsNewFolderModalOpen(true)}
-              onSort={handleSort}
-              sortBy={sortBy}
-              sortDirection={sortDirection}
-              availableFileTypes={availableFileTypes}
-              selectedFileType={selectedFileType}
-              onFileTypeChange={handleFileTypeChange}
+          <main className="flex-1 ml-0 md:ml-72 min-h-[calc(100vh-64px)] bg-white transition-all duration-300 ease-in-out">
+            {/* Tab Manager */}
+            <TabManager
+              tabs={tabs}
+              activeTabId={activeTabId}
+              onTabClick={handleTabClick}
+              onTabClose={handleTabClose}
             />
-
-            {isLoading ? (
-              <div className="flex justify-center items-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-              </div>
-            ) : !hasContent ? (
-              <div className="text-center py-12">
-                <div className="mx-auto h-24 w-24 text-gray-400">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="h-full w-full"
-                  >
-                    <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z" />
-                  </svg>
-                </div>
-                <h3 className="mt-2 text-base font-medium text-gray-900">No files here</h3>
-                <p className="mt-1 text-sm text-gray-500">
-                  Get started by uploading a file or creating a folder.
-                </p>
-                <div className="mt-6">
-                  <button
-                    onClick={() => setIsUploadModalOpen(true)}
-                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="mr-2 h-4 w-4"
-                    >
-                      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                      <polyline points="17 8 12 3 7 8" />
-                      <line x1="12" y1="3" x2="12" y2="15" />
-                    </svg>
-                    Upload Files
-                  </button>
-                </div>
-              </div>
-            ) : viewMode === "grid" ? (
-              <FileGrid
-                files={sortedFiles}
-                folders={sortedFolders}
-                onFileClick={handleFileClick}
-                onFolderClick={handleFolderClick}
-                onFileContextMenu={handleContextMenu}
-                onFolderContextMenu={handleContextMenu}
-                onDrop={handleFileDrop}
-                currentPath={currentPath}
-              />
-            ) : (
-              <FileList
-                files={sortedFiles}
-                folders={sortedFolders}
-                onFileClick={handleFileClick}
-                onFolderClick={handleFolderClick}
-                onFileContextMenu={handleContextMenu}
-                onFolderContextMenu={handleContextMenu}
-                sortBy={sortBy}
-                sortDirection={sortDirection}
-                onSort={handleSort}
-                onDrop={handleFileDrop}
-                currentPath={currentPath}
-              />
-            )}
+            
+            {/* Tab Content */}
+            <div className="flex-1">
+              {activeTabId === "my-drive" && (
+                <MyDriveContent
+                  files={sortedFiles}
+                  folders={sortedFolders}
+                  currentPath={currentPath}
+                  viewMode={viewMode}
+                  sortBy={sortBy}
+                  sortDirection={sortDirection}
+                  selectedItems={selectedItems}
+                  isLoading={isLoading}
+                  hasContent={hasContent}
+                  onViewModeChange={setViewMode}
+                  onSort={handleSort}
+                  onSelectAll={handleSelectAll}
+                  onClearSelection={handleClearSelection}
+                  onFileClick={handleFileClick}
+                  onFolderClick={handleFolderClick}
+                  onFileContextMenu={handleContextMenu}
+                  onFolderContextMenu={handleContextMenu}
+                  onNavigate={handleNavigate}
+                  onDrop={handleFileDrop}
+                  onUploadClick={() => setIsUploadModalOpen(true)}
+                  onNewFolderClick={() => setIsNewFolderModalOpen(true)}
+                />
+              )}
+              
+              {activeTabId === "recent" && <RecentContent />}
+              {activeTabId === "starred" && <StarredContent />}
+              {activeTabId === "shared" && <SharedContent />}
+              {activeTabId === "trash" && <TrashContent />}
+              {activeTabId === "settings" && <SettingsContent />}
+            </div>
           </main>
         </div>
       </div>

@@ -4,6 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import NotFound, { NotFoundProps } from "@/pages/not-found";
 import FileBrowser from "@/pages/FileBrowser";
+
 import RecentFiles from "@/pages/RecentFiles";
 import StarredFiles from "@/pages/StarredFiles";
 import TrashFiles from "@/pages/TrashFiles";
@@ -16,6 +17,7 @@ const NotFoundWrapper = (props: RouteComponentProps) => <NotFound title="Page No
 function Router() {
   return (
     <Switch>
+      
       <Route path="/" component={FileBrowserWrapper} />
       <Route path="/recent" component={RecentFiles} />
       <Route path="/starred" component={StarredFiles} />
