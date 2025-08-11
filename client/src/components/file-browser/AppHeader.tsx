@@ -8,12 +8,15 @@ interface AppHeaderProps {
   onUploadClick: () => void;
 }
 
-const AppHeader: React.FC<AppHeaderProps> = ({ onSearchChange, onUploadClick }) => {
+const AppHeader: React.FC<AppHeaderProps> = ({ 
+  onSearchChange, 
+  onUploadClick
+}) => {
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-200/60 shadow-sm">
       <div className="h-16 px-6">
         <div className="flex items-center justify-between h-full">
-          {/* Left section with Drive logo and search */}
+          {/* Left section with Drive logo, navigation, and search */}
           <div className="flex items-center gap-8">
             {/* Google Drive Logo */}
             <div className="flex items-center gap-3">
@@ -22,8 +25,10 @@ const AppHeader: React.FC<AppHeaderProps> = ({ onSearchChange, onUploadClick }) 
                   <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
                 </svg>
               </div>
-              <h1 className="text-xl font-semibold text-gray-900">Drive</h1>
+              <h1 className="text-xl font-semibold text-gray-900">BRMH Drive</h1>
             </div>
+
+
 
             {/* Search bar - Modern style */}
             <div className="relative">
@@ -31,7 +36,7 @@ const AppHeader: React.FC<AppHeaderProps> = ({ onSearchChange, onUploadClick }) 
               <Input
                 type="text"
                 className="w-96 pl-12 pr-4 h-10 bg-gray-50 border-0 rounded-xl text-sm placeholder-gray-500 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:shadow-lg transition-all duration-200"
-                placeholder="Search in Drive"
+                placeholder="Search in BRMH Drive"
                 onChange={(e) => onSearchChange(e.target.value)}
               />
             </div>

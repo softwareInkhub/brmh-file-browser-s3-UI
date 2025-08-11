@@ -19,6 +19,7 @@ import ContextMenu from "@/components/file-browser/ContextMenu";
 import ConnectionError from "@/components/file-browser/ConnectionError";
 import NotFound from "./not-found";
 import { useToast } from "@/hooks/use-toast";
+import { useBrowserHistory } from "@/hooks/use-browser-history";
 import { 
   listFiles, 
   listFolders, 
@@ -38,7 +39,7 @@ import { Home, Clock, Star, Users, Trash2, Settings } from "lucide-react";
 
 // Tab configuration
 const TAB_CONFIG = {
-  "my-drive": { label: "My Drive", icon: Home },
+  "my-drive": { label: "My BRMH Drive", icon: Home },
   "recent": { label: "Recent", icon: Clock },
   "starred": { label: "Starred", icon: Star },
   "shared": { label: "Shared with Me", icon: Users },
@@ -51,23 +52,41 @@ export interface FileBrowserProps {
 }
 
 const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
-  // State
+  // Browser history management
+  const {
+    currentState,
+    navigateToPath,
+    navigateToTab,
+    openPreview,
+    openUploadModal,
+    openNewFolderModal,
+    openRenameModal,
+    openMoveModal,
+    openDeleteModal,
+    updateSearchTerm,
+    updateViewMode,
+    updateSorting,
+    updateFileTypeFilter,
+    toggleSidebar,
+    closePreview,
+    closeUploadModal,
+    closeNewFolderModal,
+    closeRenameModal,
+    closeMoveModal,
+    closeDeleteModal,
+    goBack,
+    goForward,
+    canGoBack,
+    canGoForward,
+  } = useBrowserHistory();
+
+  // Local state (not managed by history)
   const [files, setFiles] = useState<S3Object[]>([]);
   const [folders, setFolders] = useState<S3Object[]>([]);
   const [allFolders, setAllFolders] = useState<S3Folder[]>([]);
-  const [currentPath, setCurrentPath] = useState(initialPrefix);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
-  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [selectedItem, setSelectedItem] = useState<S3Object | undefined>();
   const [previewUrl, setPreviewUrl] = useState<string | undefined>();
   const [isLoading, setIsLoading] = useState(false);
-  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
-  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-  const [isNewFolderModalOpen, setIsNewFolderModalOpen] = useState(false);
-  const [isRenameModalOpen, setIsRenameModalOpen] = useState(false);
-  const [isMoveModalOpen, setIsMoveModalOpen] = useState(false);
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState<{
     visible: boolean;
     position: Position;
@@ -77,22 +96,18 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
     position: { x: 0, y: 0 },
   });
   const [uploads, setUploads] = useState<UploadStatus[]>([]);
-  const [sortBy, setSortBy] = useState<string>("name");
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [starredItems, setStarredItems] = useState<Set<string>>(new Set());
-  const [selectedFileType, setSelectedFileType] = useState<string>("all");
   const [availableFileTypes, setAvailableFileTypes] = useState<string[]>([]);
   
   // Tab management
   const [tabs, setTabs] = useState<Tab[]>([
     {
       id: "my-drive",
-      label: "My Drive",
+      label: "My BRMH Drive",
       icon: Home,
       isActive: true
     }
   ]);
-  const [activeTabId, setActiveTabId] = useState<string>("my-drive");
   
   // Track API errors for better error handling
   const [apiError, setApiError] = useState<{
@@ -106,6 +121,100 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
     message: "",
     details: ""
   });
+
+  // Sync tab active state with history
+  useEffect(() => {
+    setTabs(prev => prev.map(tab => ({
+      ...tab,
+      isActive: tab.id === currentState.activeTabId
+    })));
+  }, [currentState.activeTabId]);
+
+  // Sync selected item with history
+  useEffect(() => {
+    if (currentState.selectedItemKey) {
+      const allItems = [...files, ...folders];
+      const found = allItems.find(item => item.key === currentState.selectedItemKey);
+      setSelectedItem(found);
+    } else {
+      setSelectedItem(undefined);
+    }
+  }, [currentState.selectedItemKey, files, folders]);
+
+  // Responsive sidebar behavior with debouncing
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    
+    const handleResize = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        if (window.innerWidth < 768 && !currentState.isSidebarCollapsed) {
+          toggleSidebar(true, true);
+        }
+      }, 150); // Debounce resize events
+    };
+
+    handleResize(); // Check on mount
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      clearTimeout(timeoutId);
+    };
+  }, [currentState.isSidebarCollapsed, toggleSidebar]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Sidebar toggle (Ctrl/Cmd + B)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
+        e.preventDefault();
+        toggleSidebar(!currentState.isSidebarCollapsed);
+      }
+      
+      // Browser navigation (Alt + Left/Right)
+      if (e.altKey && e.key === 'ArrowLeft' && canGoBack) {
+        e.preventDefault();
+        goBack();
+      }
+      if (e.altKey && e.key === 'ArrowRight' && canGoForward) {
+        e.preventDefault();
+        goForward();
+      }
+      
+      // Escape key to close modals
+      if (e.key === 'Escape') {
+        if (currentState.isPreviewModalOpen) closePreview();
+        if (currentState.isUploadModalOpen) closeUploadModal();
+        if (currentState.isNewFolderModalOpen) closeNewFolderModal();
+        if (currentState.isRenameModalOpen) closeRenameModal();
+        if (currentState.isMoveModalOpen) closeMoveModal();
+        if (currentState.isDeleteModalOpen) closeDeleteModal();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    currentState.isSidebarCollapsed,
+    currentState.isPreviewModalOpen,
+    currentState.isUploadModalOpen,
+    currentState.isNewFolderModalOpen,
+    currentState.isRenameModalOpen,
+    currentState.isMoveModalOpen,
+    currentState.isDeleteModalOpen,
+    toggleSidebar,
+    closePreview,
+    closeUploadModal,
+    closeNewFolderModal,
+    closeRenameModal,
+    closeMoveModal,
+    closeDeleteModal,
+    goBack,
+    goForward,
+    canGoBack,
+    canGoForward,
+  ]);
+  
   // Dummy storage info - would be fetched from a real API
   const [storageInfo] = useState({
     used: 4.2 * 1024 * 1024 * 1024, // 4.2 GB
@@ -133,19 +242,11 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
         setTabs(prev => [...prev, newTab]);
       }
     }
-    setActiveTabId(tabId);
-    setTabs(prev => prev.map(tab => ({
-      ...tab,
-      isActive: tab.id === tabId
-    })));
+    navigateToTab(tabId);
   };
 
   const handleTabClick = (tabId: string) => {
-    setActiveTabId(tabId);
-    setTabs(prev => prev.map(tab => ({
-      ...tab,
-      isActive: tab.id === tabId
-    })));
+    navigateToTab(tabId);
   };
 
   const handleTabClose = (tabId: string) => {
@@ -154,11 +255,11 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
     setTabs(prev => prev.filter(tab => tab.id !== tabId));
     
     // If we're closing the active tab, switch to the first remaining tab
-    if (activeTabId === tabId) {
+    if (currentState.activeTabId === tabId) {
       const remainingTabs = tabs.filter(tab => tab.id !== tabId);
       if (remainingTabs.length > 0) {
         const newActiveTab = remainingTabs[0];
-        setActiveTabId(newActiveTab.id);
+        navigateToTab(newActiveTab.id, true);
         setTabs(prev => prev.map(tab => ({
           ...tab,
           isActive: tab.id === newActiveTab.id
@@ -206,9 +307,9 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
   // Fetch files and folders
   const fetchFiles = useCallback(async () => {
     try {
-      console.log("Fetching files for path:", currentPath);
+      console.log("Fetching files for path:", currentState.currentPath);
       setIsLoading(true);
-      const result = await listFiles(currentPath);
+      const result = await listFiles(currentState.currentPath);
       console.log("Files API response:", result);
       setFiles(result.files);
       setFolders(result.folders);
@@ -244,7 +345,7 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
     } finally {
       setIsLoading(false);
     }
-  }, [currentPath, toast, apiError.hasError]);
+  }, [currentState.currentPath, toast, apiError.hasError]);
 
   // Fetch all folders for sidebar and move modal
   const fetchAllFolders = useCallback(async () => {
@@ -289,19 +390,11 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
     fetchAllFolders();
   }, [fetchFiles, fetchAllFolders]);
 
-  // URL parameter handling
-  useEffect(() => {
-    const params = new URLSearchParams(location.split("?")[1]);
-    const prefix = params.get("prefix") || "";
-    console.log("URL changed, setting current path to:", prefix);
-    setCurrentPath(prefix);
-  }, [location]);
-
   // Fetch files whenever currentPath changes
   useEffect(() => {
-    console.log("currentPath changed, fetching files for:", currentPath);
+    console.log("currentPath changed, fetching files for:", currentState.currentPath);
     fetchFiles();
-  }, [currentPath, fetchFiles]);
+  }, [currentState.currentPath, fetchFiles]);
   
   // Extract unique file types from files for filtering
   useEffect(() => {
@@ -328,43 +421,43 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
       setAvailableFileTypes(typeArray);
       
       // Reset selected file type if it's no longer available
-      if (selectedFileType !== 'all' && !uniqueTypes.has(selectedFileType)) {
-        setSelectedFileType('all');
+      if (currentState.selectedFileType !== 'all' && !uniqueTypes.has(currentState.selectedFileType)) {
+        updateFileTypeFilter('all', true);
       }
     } else {
       setAvailableFileTypes([]);
-      setSelectedFileType('all');
+      updateFileTypeFilter('all', true);
     }
-  }, [files, selectedFileType]);
+  }, [files, currentState.selectedFileType, updateFileTypeFilter]);
 
   // Filter files by search term and file type
   const filteredFiles = files.filter(
     (file) => {
       // First apply search term filter
-      const matchesSearch = file.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        file.key.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSearch = file.name?.toLowerCase().includes(currentState.searchTerm.toLowerCase()) ||
+        file.key.toLowerCase().includes(currentState.searchTerm.toLowerCase());
       
       // Then apply file type filter if needed
-      if (selectedFileType === 'all') {
+      if (currentState.selectedFileType === 'all') {
         return matchesSearch;
       }
       
       // Check file type
-      if (file.type && file.type.toLowerCase() === selectedFileType) {
+      if (file.type && file.type.toLowerCase() === currentState.selectedFileType) {
         return matchesSearch;
       }
       
       // Check file extension
       const fileName = file.name || file.key;
       const extension = fileName.split('.').pop()?.toLowerCase();
-      return matchesSearch && extension === selectedFileType;
+      return matchesSearch && extension === currentState.selectedFileType;
     }
   );
 
   const filteredFolders = folders.filter(
     (folder) =>
-      folder.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      folder.key.toLowerCase().includes(searchTerm.toLowerCase())
+      folder.name?.toLowerCase().includes(currentState.searchTerm.toLowerCase()) ||
+      folder.key.toLowerCase().includes(currentState.searchTerm.toLowerCase())
   );
 
   // Sort files and folders
@@ -372,21 +465,21 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
     let aValue: any = a.name || a.key.split("/").pop() || a.key;
     let bValue: any = b.name || b.key.split("/").pop() || b.key;
     
-    if (sortBy === "name") {
+    if (currentState.sortBy === "name") {
       aValue = aValue.toLowerCase();
       bValue = bValue.toLowerCase();
-    } else if (sortBy === "size") {
+    } else if (currentState.sortBy === "size") {
       aValue = a.size || 0;
       bValue = b.size || 0;
-    } else if (sortBy === "lastModified") {
+    } else if (currentState.sortBy === "lastModified") {
       aValue = new Date(a.lastModified || 0).getTime();
       bValue = new Date(b.lastModified || 0).getTime();
-    } else if (sortBy === "type") {
+    } else if (currentState.sortBy === "type") {
       aValue = a.type || "";
       bValue = b.type || "";
     }
     
-    const comparison = sortDirection === "asc" ? 1 : -1;
+    const comparison = currentState.sortDirection === "asc" ? 1 : -1;
     return aValue < bValue ? -comparison : aValue > bValue ? comparison : 0;
   });
 
@@ -394,44 +487,23 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
     const aName = a.name || a.key.split("/").pop() || a.key;
     const bName = b.name || b.key.split("/").pop() || b.key;
     
-    return sortDirection === "asc"
+    return currentState.sortDirection === "asc"
       ? aName.localeCompare(bName)
       : bName.localeCompare(aName);
   });
 
   // Handle sort
   const handleSort = (column: string) => {
-    if (sortBy === column) {
-      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    if (currentState.sortBy === column) {
+      updateSorting(column, currentState.sortDirection === "asc" ? "desc" : "asc");
     } else {
-      setSortBy(column);
-      setSortDirection("asc");
+      updateSorting(column, "asc");
     }
   };
 
-  // Handle selection
-  const handleSelectAll = () => {
-    const allKeys = [...files, ...folders].map(item => item.key);
-    setSelectedItems(new Set(allKeys));
-  };
-
-  const handleClearSelection = () => {
-    setSelectedItems(new Set());
-  };
-
-  const handleItemSelect = (key: string, isSelected: boolean) => {
-    const newSelected = new Set(selectedItems);
-    if (isSelected) {
-      newSelected.add(key);
-    } else {
-      newSelected.delete(key);
-    }
-    setSelectedItems(newSelected);
-  };
-  
   // Handle file type filter change
   const handleFileTypeChange = (type: string) => {
-    setSelectedFileType(type);
+    updateFileTypeFilter(type);
   };
 
   // Navigate to folder
@@ -443,35 +515,8 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
     const formattedPath = path.endsWith('/') ? path : `${path}/`;
     console.log("Formatted path with trailing slash:", formattedPath);
     
-    // Debug to see what's happening with the URL
-    console.log("Setting location to:", `/?prefix=${encodeURIComponent(formattedPath)}`);
-    
-    // Force a direct fetch instead of relying on the URL change
-    try {
-      setIsLoading(true);
-      listFiles(formattedPath)
-        .then(result => {
-          console.log("Direct folder fetch result:", result);
-          setFiles(result.files);
-          setFolders(result.folders);
-          setCurrentPath(formattedPath); // Update current path directly
-          setLocation(`/?prefix=${encodeURIComponent(formattedPath)}`); // Also update URL for history
-        })
-        .catch(error => {
-          console.error("Error fetching folder contents directly:", error);
-          toast({
-            title: "Error navigating to folder",
-            description: error.message,
-            variant: "destructive",
-          });
-        })
-        .finally(() => {
-          setIsLoading(false);
-        });
-    } catch (error) {
-      console.error("Exception in folder navigation:", error);
-      setIsLoading(false);
-    }
+    // Use browser history navigation
+    navigateToPath(formattedPath);
   };
 
   // Navigate to path
@@ -480,42 +525,15 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
     const formattedPath = path ? (path.endsWith('/') ? path : `${path}/`) : path;
     console.log("Navigating via breadcrumbs to path:", formattedPath);
     
-    // Debug to see what's happening with the URL
-    console.log("Setting breadcrumb location to:", `/?prefix=${encodeURIComponent(formattedPath)}`);
-    
-    // Use the same direct fetch approach for consistency with folder click handling
-    try {
-      setIsLoading(true);
-      listFiles(formattedPath)
-        .then(result => {
-          console.log("Direct breadcrumb navigation result:", result);
-          setFiles(result.files);
-          setFolders(result.folders);
-          setCurrentPath(formattedPath); // Update current path directly
-          setLocation(`/?prefix=${encodeURIComponent(formattedPath)}`); // Also update URL for history
-        })
-        .catch(error => {
-          console.error("Error fetching path contents via breadcrumb:", error);
-          toast({
-            title: "Error navigating to location",
-            description: error.message,
-            variant: "destructive",
-          });
-        })
-        .finally(() => {
-          setIsLoading(false);
-        });
-    } catch (error) {
-      console.error("Exception in breadcrumb navigation:", error);
-      setIsLoading(false);
-    }
+    // Use browser history navigation
+    navigateToPath(formattedPath);
   };
 
   // Preview file
   const handleFilePreview = async (file: S3Object) => {
     try {
       setSelectedItem(file);
-      setIsPreviewModalOpen(true);
+      openPreview(file.key);
       setPreviewUrl(undefined);
 
       const preview = await getFilePreviewUrl(file.key);
@@ -538,7 +556,7 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
       file,
       progress: 0,
       status: "pending",
-      key: currentPath ? `${currentPath}${file.name}` : file.name,
+      key: currentState.currentPath ? `${currentState.currentPath}${file.name}` : file.name,
     }));
 
     setUploads(newUploads);
@@ -585,7 +603,7 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
       
       // After a short delay, clear the uploads array and close the modal
       setTimeout(() => {
-        setIsUploadModalOpen(false);
+        closeUploadModal();
         // Clear uploads after a short delay to ensure the modal closes properly
         setTimeout(() => {
           setUploads([]);
@@ -597,12 +615,12 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
   // Create new folder
   const handleCreateFolder = async (name: string) => {
     try {
-      await createFolder(currentPath, name);
+      await createFolder(currentState.currentPath, name);
       await fetchFiles();
       await fetchAllFolders();
       
       // Close the new folder modal after successful creation
-      setIsNewFolderModalOpen(false);
+      closeNewFolderModal();
       
       toast({
         title: "Success",
@@ -626,7 +644,7 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
       await fetchFiles();
       
       // Close the rename modal after successful rename
-      setIsRenameModalOpen(false);
+      closeRenameModal();
       
       toast({
         title: "Success",
@@ -650,7 +668,7 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
       await fetchFiles();
       
       // Close the move modal after successful move
-      setIsMoveModalOpen(false);
+      closeMoveModal();
       
       toast({
         title: "Success",
@@ -674,7 +692,7 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
       await fetchFiles();
       
       // Close the delete confirmation modal
-      setIsDeleteModalOpen(false);
+      closeDeleteModal();
       
       toast({
         title: "Success",
@@ -743,6 +761,32 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
       position: { x: e.clientX, y: e.clientY },
       item,
     });
+  };
+
+  // Context menu action handlers
+  const handleContextMenuAction = (action: string, item: S3Object) => {
+    closeContextMenu();
+    
+    switch (action) {
+      case 'preview':
+        handleFilePreview(item);
+        break;
+      case 'download':
+        handleDownload();
+        break;
+      case 'rename':
+        openRenameModal(item.key);
+        break;
+      case 'move':
+        openMoveModal(item.key);
+        break;
+      case 'delete':
+        openDeleteModal(item.key);
+        break;
+      case 'star':
+        handleToggleStar();
+        break;
+    }
   };
 
   const closeContextMenu = () => {
@@ -824,61 +868,65 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white layout-stable">
       <AppHeader 
-        onSearchChange={setSearchTerm}
-        onUploadClick={() => setIsUploadModalOpen(true)}
+        onSearchChange={updateSearchTerm}
+        onUploadClick={openUploadModal}
       />
       <div className="pt-16">
         <div className="flex">
           <Sidebar 
             folders={allFolders}
             storageInfo={storageInfo}
-            onNewClick={() => setIsUploadModalOpen(true)}
+            onNewClick={openUploadModal}
             onTabOpen={handleTabOpen}
+            activeTabId={currentState.activeTabId}
+            isCollapsed={currentState.isSidebarCollapsed}
+            onToggleCollapse={toggleSidebar}
           />
-          <main className="flex-1 ml-0 md:ml-72 min-h-[calc(100vh-64px)] bg-white transition-all duration-300 ease-in-out">
+          <main className={`flex-1 min-h-[calc(100vh-64px)] bg-white main-content-responsive ${
+            currentState.isSidebarCollapsed ? 'sidebar-collapsed' : 'sidebar-expanded'
+          }`}>
             {/* Tab Manager */}
             <TabManager
               tabs={tabs}
-              activeTabId={activeTabId}
+              activeTabId={currentState.activeTabId}
               onTabClick={handleTabClick}
               onTabClose={handleTabClose}
             />
             
             {/* Tab Content */}
             <div className="flex-1">
-              {activeTabId === "my-drive" && (
+              {currentState.activeTabId === "my-drive" && (
                 <MyDriveContent
                   files={sortedFiles}
                   folders={sortedFolders}
-                  currentPath={currentPath}
-                  viewMode={viewMode}
-                  sortBy={sortBy}
-                  sortDirection={sortDirection}
-                  selectedItems={selectedItems}
+                  currentPath={currentState.currentPath}
+                  viewMode={currentState.viewMode}
+                  sortBy={currentState.sortBy}
+                  sortDirection={currentState.sortDirection}
+
                   isLoading={isLoading}
                   hasContent={hasContent}
-                  onViewModeChange={setViewMode}
+                  onViewModeChange={updateViewMode}
                   onSort={handleSort}
-                  onSelectAll={handleSelectAll}
-                  onClearSelection={handleClearSelection}
+
                   onFileClick={handleFileClick}
                   onFolderClick={handleFolderClick}
                   onFileContextMenu={handleContextMenu}
                   onFolderContextMenu={handleContextMenu}
                   onNavigate={handleNavigate}
                   onDrop={handleFileDrop}
-                  onUploadClick={() => setIsUploadModalOpen(true)}
-                  onNewFolderClick={() => setIsNewFolderModalOpen(true)}
+                  onUploadClick={openUploadModal}
+                  onNewFolderClick={openNewFolderModal}
                 />
               )}
               
-              {activeTabId === "recent" && <RecentContent />}
-              {activeTabId === "starred" && <StarredContent />}
-              {activeTabId === "shared" && <SharedContent />}
-              {activeTabId === "trash" && <TrashContent />}
-              {activeTabId === "settings" && <SettingsContent />}
+              {currentState.activeTabId === "recent" && <RecentContent />}
+              {currentState.activeTabId === "starred" && <StarredContent />}
+              {currentState.activeTabId === "shared" && <SharedContent />}
+              {currentState.activeTabId === "trash" && <TrashContent />}
+              {currentState.activeTabId === "settings" && <SettingsContent />}
             </div>
           </main>
         </div>
@@ -886,60 +934,60 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
 
       {/* Modals */}
       <FilePreviewModal
-        isOpen={isPreviewModalOpen}
-        onClose={() => setIsPreviewModalOpen(false)}
+        isOpen={currentState.isPreviewModalOpen}
+        onClose={closePreview}
         file={selectedItem}
         previewUrl={previewUrl}
         onDownload={handleDownload}
         onStar={handleToggleStar}
         onRename={() => {
-          setIsPreviewModalOpen(false);
-          setIsRenameModalOpen(true);
+          closePreview();
+          openRenameModal(selectedItem?.key || '', true);
         }}
         onMove={() => {
-          setIsPreviewModalOpen(false);
-          setIsMoveModalOpen(true);
+          closePreview();
+          openMoveModal(selectedItem?.key || '', true);
         }}
         onDelete={() => {
-          setIsPreviewModalOpen(false);
-          setIsDeleteModalOpen(true);
+          closePreview();
+          openDeleteModal(selectedItem?.key || '', true);
         }}
         isStarred={selectedItem ? starredItems.has(selectedItem.key) : false}
       />
 
       <UploadModal
-        isOpen={isUploadModalOpen}
-        onClose={() => setIsUploadModalOpen(false)}
+        isOpen={currentState.isUploadModalOpen}
+        onClose={closeUploadModal}
         onUpload={handleUploadFiles}
-        currentPath={currentPath}
+        currentPath={currentState.currentPath}
         uploads={uploads}
       />
 
       <NewFolderModal
-        isOpen={isNewFolderModalOpen}
-        onClose={() => setIsNewFolderModalOpen(false)}
+        isOpen={currentState.isNewFolderModalOpen}
+        onClose={closeNewFolderModal}
         onCreateFolder={handleCreateFolder}
-        currentPath={currentPath}
+        currentPath={currentState.currentPath}
       />
 
       <RenameModal
-        isOpen={isRenameModalOpen}
-        onClose={() => setIsRenameModalOpen(false)}
+        isOpen={currentState.isRenameModalOpen}
+        onClose={closeRenameModal}
         onRename={handleRename}
         item={selectedItem}
       />
 
       <MoveModal
-        isOpen={isMoveModalOpen}
-        onClose={() => setIsMoveModalOpen(false)}
+        isOpen={currentState.isMoveModalOpen}
+        onClose={closeMoveModal}
         onMove={handleMove}
         item={selectedItem}
         folders={allFolders}
       />
 
       <DeleteConfirmModal
-        isOpen={isDeleteModalOpen}
-        onClose={() => setIsDeleteModalOpen(false)}
+        isOpen={currentState.isDeleteModalOpen}
+        onClose={closeDeleteModal}
         onDelete={handleDelete}
         item={selectedItem}
       />
@@ -961,12 +1009,12 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
         onRename={() => {
           closeContextMenu();
           setSelectedItem(contextMenu.item);
-          setIsRenameModalOpen(true);
+          openRenameModal(contextMenu.item?.key || '');
         }}
         onMove={() => {
           closeContextMenu();
           setSelectedItem(contextMenu.item);
-          setIsMoveModalOpen(true);
+          openMoveModal(contextMenu.item?.key || '');
         }}
         onStar={() => {
           closeContextMenu();
@@ -976,7 +1024,7 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
         onDelete={() => {
           closeContextMenu();
           setSelectedItem(contextMenu.item);
-          setIsDeleteModalOpen(true);
+          openDeleteModal(contextMenu.item?.key || '');
         }}
         isStarred={contextMenu.item ? starredItems.has(contextMenu.item.key) : false}
       />

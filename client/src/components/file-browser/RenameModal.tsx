@@ -68,27 +68,7 @@ const RenameModal: React.FC<RenameModalProps> = ({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="max-w-md w-full">
         <DialogHeader className="px-6 py-4 border-b border-gray-200">
-          <div className="flex items-center justify-between">
-            <DialogTitle className="text-lg font-medium">Rename Item</DialogTitle>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-700 transition-colors"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-5 w-5"
-              >
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
-            </button>
-          </div>
+          <DialogTitle className="text-lg font-medium">Rename Item</DialogTitle>
         </DialogHeader>
 
         <div className="p-6">

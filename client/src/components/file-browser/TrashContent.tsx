@@ -10,7 +10,7 @@ const TrashContent: React.FC = () => {
       type: "document", 
       deletedAt: "2 days ago", 
       size: "1.8 MB",
-      originalLocation: "My Drive/Documents"
+      originalLocation: "My BRMH Drive/Documents"
     },
     { 
       id: 2, 
@@ -18,7 +18,7 @@ const TrashContent: React.FC = () => {
       type: "folder", 
       deletedAt: "1 week ago", 
       size: "12.5 MB",
-      originalLocation: "My Drive"
+      originalLocation: "My BRMH Drive"
     },
     { 
       id: 3, 
@@ -26,7 +26,7 @@ const TrashContent: React.FC = () => {
       type: "pdf", 
       deletedAt: "3 days ago", 
       size: "2.3 MB",
-      originalLocation: "My Drive/Work"
+      originalLocation: "My BRMH Drive/Work"
     },
   ];
 

@@ -40,7 +40,7 @@ const SettingsContent: React.FC = () => {
       id: "appearance",
       title: "Appearance",
       icon: Palette,
-      description: "Customize the look and feel of your drive",
+      description: "Customize the look and feel of your BRMH Drive",
       items: [
         { name: "Theme", description: "Choose between light and dark themes" },
         { name: "Language", description: "Select your preferred language" },

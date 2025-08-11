@@ -1,6 +1,58 @@
-# S3 File Browser
+# BRMH S3 Browser
 
-A modern, interactive AWS S3 file browser built with React, Express, and TypeScript. This application provides comprehensive file and folder management capabilities with seamless cloud storage integration.
+A modern, responsive cloud drive interface for browsing and managing files stored in AWS S3.
+
+## Features
+
+### Responsive Sidebar Toggle
+The application features a fully responsive sidebar that can be collapsed and expanded:
+
+- **Smooth Transitions**: Fluid animations when toggling between collapsed and expanded states
+- **Responsive Design**: Automatically adapts to different screen sizes
+- **Keyboard Shortcuts**: Use `Ctrl+B` (or `Cmd+B` on Mac) to toggle the sidebar
+- **State Persistence**: Remembers your sidebar preference across sessions
+- **Mobile Optimized**: On mobile devices, the sidebar becomes a slide-out menu
+- **No Layout Shifts**: Main content area smoothly adjusts to occupy freed space
+
+#### Sidebar States:
+- **Expanded**: Full width (288px) showing navigation labels, quick access folders, and storage info
+- **Collapsed**: Minimal width (64px) showing only icons with tooltips
+- **Mobile**: Slide-out overlay that can be toggled with the menu button
+
+#### Usage:
+- Click the chevron button on the sidebar edge to toggle
+- Use keyboard shortcut `Ctrl+B` / `Cmd+B`
+- On mobile, use the menu button in the top-left corner
+- Hover over icons in collapsed state to see tooltips
+
+### Browser History Navigation
+The application features comprehensive browser history support that preserves the complete UI state:
+
+#### Navigation Features:
+- **State Preservation**: All UI state (current path, active tab, search terms, view mode, sorting, modals, etc.) is preserved in browser history
+- **Smooth Transitions**: Fluid navigation between different states without page reloads
+- **URL Synchronization**: Browser URL reflects the current application state for bookmarking and sharing
+- **Back/Forward Support**: Full support for browser back/forward buttons with visual indicators
+
+#### Preserved State Elements:
+- **Navigation State**: Current folder path, active tab (My Drive, Recent, Starred, etc.)
+- **UI Preferences**: View mode (grid/list), sort settings, file type filters, sidebar collapse state
+- **Search State**: Current search terms and results
+- **Modal States**: Open modals (preview, upload, rename, move, delete) with selected items
+- **Scroll Position**: Maintains scroll position when navigating back/forward
+
+#### Browser Navigation Controls:
+- **Visual Indicators**: Back/forward buttons in the header show navigation availability
+- **Keyboard Shortcuts**: 
+  - `Alt+←`: Navigate back in browser history
+  - `Alt+→`: Navigate forward in browser history
+- **URL Parameters**: All state is encoded in URL parameters for direct linking
+
+#### URL Structure:
+The application uses URL parameters to encode state:
+```
+/?prefix=folder/path&tab=my-drive&search=document&view=grid&sortBy=name&sortDir=asc&sidebar=collapsed&preview=true&selected=file.pdf
+```
 
 ![S3 File Browser Screenshot](./attached_assets/image_1743190877829.png)
 

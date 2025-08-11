@@ -188,94 +188,136 @@ const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
       fileName.endsWith(".webp")
     ) {
       return (
-        <img
-          src={previewUrl}
-          alt={getFileName(file.key)}
-          className="max-w-full max-h-full object-contain"
-        />
+        <div className="w-full h-full flex items-center justify-center">
+          <img
+            src={previewUrl}
+            alt={getFileName(file.key)}
+            className="file-preview-image"
+          />
+        </div>
       );
     } else if (
       fileType.includes("pdf") ||
       fileName.endsWith(".pdf")
     ) {
       return (
-        <iframe
-          src={previewUrl}
-          className="w-full h-full border-0"
-          title={getFileName(file.key)}
-        ></iframe>
+        <div className="w-full h-full">
+          <iframe
+            src={previewUrl}
+            className="file-preview-iframe"
+            title={getFileName(file.key)}
+          ></iframe>
+        </div>
       );
     } else if (
       fileType.includes("video") ||
       fileName.endsWith(".mp4") ||
       fileName.endsWith(".webm") ||
-      fileName.endsWith(".mov")
+      fileName.endsWith(".mov") ||
+      fileName.endsWith(".avi")
     ) {
       return (
-        <video
-          src={previewUrl}
-          controls
-          className="max-w-full max-h-full"
-        ></video>
+        <div className="w-full h-full flex items-center justify-center">
+          <video
+            src={previewUrl}
+            controls
+            className="file-preview-video"
+            autoPlay={false}
+            preload="metadata"
+          ></video>
+        </div>
       );
     } else if (
       fileType.includes("audio") ||
       fileName.endsWith(".mp3") ||
       fileName.endsWith(".wav") ||
-      fileName.endsWith(".ogg")
+      fileName.endsWith(".ogg") ||
+      fileName.endsWith(".m4a")
     ) {
       return (
-        <audio
-          src={previewUrl}
-          controls
-          className="w-full"
-        ></audio>
+        <div className="w-full h-full flex items-center justify-center">
+          <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12,3V13.55C11.41,13.21 10.73,13 10,13C7.79,13 6,14.79 6,17C6,19.21 7.79,21 10,21C12.21,21 14,19.21 14,17V7H18V3H12Z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-medium text-gray-900">{getFileName(file.key)}</h3>
+              <p className="text-sm text-gray-500 mt-1">{formatSize(file.size)}</p>
+            </div>
+            <audio
+              src={previewUrl}
+              controls
+              className="w-full"
+              preload="metadata"
+            ></audio>
+          </div>
+        </div>
       );
     } else {
-      // Generic file preview with download button
+      // Generic file preview without download button (download available in header)
       return (
-        <div className="flex flex-col items-center justify-center p-8">
-          <div className="bg-gray-100 p-6 rounded-full mb-4">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-16 w-16 text-gray-500"
+        <div className="w-full h-full flex items-center justify-center">
+          <div className="bg-white p-8 rounded-lg shadow-lg max-w-md w-full text-center">
+            <div className="bg-gray-100 p-6 rounded-full mb-6 mx-auto w-24 h-24 flex items-center justify-center">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-12 w-12 text-gray-500"
+              >
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="16" y1="13" x2="8" y2="13" />
+                <line x1="16" y1="17" x2="8" y2="17" />
+                <line x1="10" y1="9" x2="8" y2="9" />
+              </svg>
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-3">
+              {getFileName(file.key)}
+            </h3>
+            <div className="space-y-2 mb-6">
+              <p className="text-sm text-gray-600">
+                <span className="font-medium">Size:</span> {formatSize(file.size)}
+              </p>
+              <p className="text-sm text-gray-600">
+                <span className="font-medium">Type:</span> {file.type || 'Unknown'}
+              </p>
+              {file.lastModified && (
+                <p className="text-sm text-gray-600">
+                  <span className="font-medium">Modified:</span> {formatDate(file.lastModified)}
+                </p>
+              )}
+            </div>
+            <p className="text-sm text-gray-500 mb-6">
+              This file type cannot be previewed. Use the download button in the header to download this file.
+            </p>
+            <button
+              onClick={onDownload}
+              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-              <polyline points="14 2 14 8 20 8" />
-              <line x1="16" y1="13" x2="8" y2="13" />
-              <line x1="16" y1="17" x2="8" y2="17" />
-              <line x1="10" y1="9" x2="8" y2="9" />
-            </svg>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-4 w-4 mr-2"
+              >
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              Download File
+            </button>
           </div>
-          <p className="text-lg font-medium text-gray-900 mb-2">
-            {getFileName(file.key)}
-          </p>
-          <p className="text-sm text-gray-500 mb-4">
-            This file type cannot be previewed
-          </p>
-          <Button onClick={onDownload}>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-4 w-4 mr-2"
-            >
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-              <polyline points="7 10 12 15 17 10" />
-              <line x1="12" y1="15" x2="12" y2="3" />
-            </svg>
-            Download
-          </Button>
         </div>
       );
     }
@@ -292,8 +334,8 @@ const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
       
       {/* Preview Modal */}
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-4xl w-full max-h-[90vh] flex flex-col p-0">
-          <DialogHeader className="px-6 py-4 border-b border-gray-200">
+        <DialogContent className="fullscreen-modal flex flex-col bg-white">
+          <DialogHeader className="px-6 py-4 border-b border-gray-200 relative">
             <div className="flex items-center justify-between">
               <DialogTitle className="text-lg font-medium">
                 {getFileName(file.key)}
@@ -337,10 +379,10 @@ const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
                     <line x1="12" y1="15" x2="12" y2="3" />
                   </svg>
                 </button>
-                <button
-                  onClick={onClose}
-                  className="text-gray-400 hover:text-gray-700 transition-colors"
-                >
+                                 <button
+                   onClick={onClose}
+                   className="custom-close-button text-gray-400 hover:text-gray-700 transition-colors ml-2"
+                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     viewBox="0 0 24 24"
@@ -359,8 +401,10 @@ const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
             </div>
           </DialogHeader>
 
-          <div className="flex-1 overflow-auto p-6 flex items-center justify-center bg-gray-50 min-h-[40vh]">
-            {renderPreview()}
+          <div className="flex-1 overflow-auto bg-gray-50 relative">
+            <div className="file-preview-container">
+              {renderPreview()}
+            </div>
           </div>
 
           <div className="px-6 py-4 border-t border-gray-200 bg-white">

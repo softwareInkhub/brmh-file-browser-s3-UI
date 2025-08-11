@@ -1,9 +1,8 @@
 import React from "react";
 import { S3Object, S3Folder } from "../../types";
-import ActionBar from "./ActionBar";
+import UnifiedNavBar from "./UnifiedNavBar";
 import FileGrid from "./FileGrid";
 import FileList from "./FileList";
-import Breadcrumbs from "./Breadcrumbs";
 
 interface MyDriveContentProps {
   files: S3Object[];
@@ -12,13 +11,12 @@ interface MyDriveContentProps {
   viewMode: "grid" | "list";
   sortBy: string;
   sortDirection: "asc" | "desc";
-  selectedItems: Set<string>;
+
   isLoading: boolean;
   hasContent: boolean;
   onViewModeChange: (mode: "grid" | "list") => void;
   onSort: (column: string) => void;
-  onSelectAll: () => void;
-  onClearSelection: () => void;
+
   onFileClick: (file: S3Object) => void;
   onFolderClick: (folder: S3Object) => void;
   onFileContextMenu: (item: S3Object, e: React.MouseEvent) => void;
@@ -36,13 +34,12 @@ const MyDriveContent: React.FC<MyDriveContentProps> = ({
   viewMode,
   sortBy,
   sortDirection,
-  selectedItems,
+
   isLoading,
   hasContent,
   onViewModeChange,
   onSort,
-  onSelectAll,
-  onClearSelection,
+
   onFileClick,
   onFolderClick,
   onFileContextMenu,
@@ -54,20 +51,16 @@ const MyDriveContent: React.FC<MyDriveContentProps> = ({
 }) => {
   return (
     <div className="flex-1">
-      {/* Action Bar */}
-      <ActionBar
+      {/* Unified Navigation Bar */}
+      <UnifiedNavBar
         viewMode={viewMode}
         onViewModeChange={onViewModeChange}
         sortBy={sortBy}
         sortDirection={sortDirection}
         onSort={onSort}
-        selectedCount={selectedItems.size}
-        onSelectAll={onSelectAll}
-        onClearSelection={onClearSelection}
+        path={currentPath}
+        onNavigate={onNavigate}
       />
-
-      {/* Breadcrumbs */}
-      <Breadcrumbs currentPath={currentPath} onNavigate={onNavigate} />
 
       {/* Content */}
       {isLoading ? (
@@ -146,17 +139,18 @@ const MyDriveContent: React.FC<MyDriveContentProps> = ({
             </button>
           </div>
         </div>
-      ) : viewMode === "grid" ? (
-        <FileGrid
-          files={files}
-          folders={folders}
-          onFileClick={onFileClick}
-          onFolderClick={onFolderClick}
-          onFileContextMenu={onFileContextMenu}
-          onFolderContextMenu={onFolderContextMenu}
-          onDrop={onDrop}
-          currentPath={currentPath}
-        />
+             ) : viewMode === "grid" ? (
+         <FileGrid
+           files={files}
+           folders={folders}
+           viewMode={viewMode}
+           onFileClick={onFileClick}
+           onFolderClick={onFolderClick}
+           onFileContextMenu={onFileContextMenu}
+           onFolderContextMenu={onFolderContextMenu}
+           onDrop={onDrop}
+           currentPath={currentPath}
+         />
       ) : (
         <FileList
           files={files}

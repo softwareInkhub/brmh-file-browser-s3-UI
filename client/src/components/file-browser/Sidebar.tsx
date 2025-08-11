@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useRoute } from "wouter";
 import { S3Folder } from "../../types";
+import { truncateFolderName } from "../../lib/utils";
 import { Progress } from "@/components/ui/progress";
 import { Button } from '../ui/button';
 import { Menu, ChevronRight, Folder, Clock, Star, Users, Trash2, Plus, HardDrive, Settings, Home } from 'lucide-react';
@@ -15,6 +16,9 @@ interface SidebarProps {
   };
   onNewClick?: () => void;
   onTabOpen?: (tabId: string) => void;
+  activeTabId?: string;
+  isCollapsed?: boolean;
+  onToggleCollapse?: (collapsed: boolean) => void;
 }
 
 const Sidebar: React.FC<SidebarProps> = ({
@@ -25,7 +29,10 @@ const Sidebar: React.FC<SidebarProps> = ({
     percentage: 0
   },
   onNewClick,
-  onTabOpen
+  onTabOpen,
+  activeTabId,
+  isCollapsed = false,
+  onToggleCollapse
 }) => {
   // For route matching
   const [isAllFiles] = useRoute("/");
@@ -34,11 +41,10 @@ const Sidebar: React.FC<SidebarProps> = ({
   const [isTrash] = useRoute("/trash");
   const [isShared] = useRoute("/shared");
 
-
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
-  const [isCollapsed, setIsCollapsed] = useState(false);
   const [activeSheet, setActiveSheet] = useState<string | null>(null);
+  const [isTransitioning, setIsTransitioning] = useState(false);
 
   // Check if we're on mobile
   useEffect(() => {
@@ -52,6 +58,34 @@ const Sidebar: React.FC<SidebarProps> = ({
     return () => window.removeEventListener('resize', checkIfMobile);
   }, []);
 
+  // Handle collapse toggle
+  const handleToggleCollapse = () => {
+    if (onToggleCollapse && !isTransitioning) {
+      setIsTransitioning(true);
+      onToggleCollapse(!isCollapsed);
+      
+      // Reset transition state after animation completes
+      setTimeout(() => {
+        setIsTransitioning(false);
+      }, 300);
+    }
+  };
+
+  // Handle navigation item click
+  const handleNavigationClick = (tabId: string) => {
+    // On mobile, close the menu after clicking
+    if (isMobile) {
+      setIsMobileMenuOpen(false);
+    }
+    
+    // On larger screens, if sidebar is collapsed and user clicks a nav item, expand it
+    if (!isMobile && isCollapsed && onToggleCollapse) {
+      onToggleCollapse(false);
+    }
+    
+    onTabOpen?.(tabId);
+  };
+
   // Format storage size
   const formatSize = (bytes: number): string => {
     if (bytes === 0) return "0 Bytes";
@@ -64,44 +98,44 @@ const Sidebar: React.FC<SidebarProps> = ({
   const navigationItems = [
     {
       id: "my-drive",
-      label: "My Drive",
+      label: "My BRMH Drive",
       icon: Home,
-      isActive: isAllFiles,
+      isActive: activeTabId === "my-drive",
       badge: null
     },
     {
       id: "recent",
       label: "Recent",
       icon: Clock,
-      isActive: isRecent,
+      isActive: activeTabId === "recent",
       badge: null
     },
     {
       id: "starred",
       label: "Starred",
       icon: Star,
-      isActive: isStarred,
+      isActive: activeTabId === "starred",
       badge: null
     },
     {
       id: "shared",
       label: "Shared with Me",
       icon: Users,
-      isActive: isShared,
+      isActive: activeTabId === "shared",
       badge: null
     },
     {
       id: "trash",
       label: "Trash",
       icon: Trash2,
-      isActive: isTrash,
+      isActive: activeTabId === "trash",
       badge: null
     },
     {
       id: "settings",
       label: "Settings",
       icon: Settings,
-      isActive: false,
+      isActive: activeTabId === "settings",
       badge: null
     }
   ];
@@ -112,22 +146,28 @@ const Sidebar: React.FC<SidebarProps> = ({
       {isMobile && (
         <Button
           variant="ghost"
-          className="fixed top-4 left-4 z-50 md:hidden w-10 h-10 p-0 flex items-center justify-center bg-white/90 backdrop-blur-sm border border-gray-200 rounded-lg shadow-sm"
+          className="fixed top-4 left-4 z-50 md:hidden w-10 h-10 p-0 flex items-center justify-center bg-white/90 backdrop-blur-sm border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-all duration-200"
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          title="Toggle menu"
         >
           <Menu className="h-5 w-5" />
         </Button>
       )}
 
       {/* Sidebar Content */}
-      <aside className={`
-        fixed top-16 left-0 z-40 h-[calc(100vh-64px)]
-        transition-all duration-300 ease-in-out
-        bg-white/95 backdrop-blur-md border-r border-gray-200/60 shadow-sm
-        ${isMobile ? 'w-72' : isCollapsed ? 'w-16' : 'w-72'}
-        ${isMobile && !isMobileMenuOpen ? '-translate-x-full' : 'translate-x-0'}
-        ${!isMobile && isCollapsed ? 'w-16' : 'w-72'}
-      `}>
+      <aside 
+        className={`
+          fixed top-16 left-0 z-40 h-[calc(100vh-64px)]
+          sidebar-responsive
+          bg-white/95 backdrop-blur-md border-r border-gray-200/60 shadow-sm
+          ${isMobile ? 'w-72' : isCollapsed ? 'collapsed' : 'expanded'}
+          ${isMobile && !isMobileMenuOpen ? '-translate-x-full' : 'translate-x-0'}
+          ${isTransitioning ? 'sidebar-transitioning' : ''}
+        `}
+        role="navigation"
+        aria-label="Main navigation"
+        aria-expanded={!isCollapsed}
+      >
         <nav className="px-4 py-6">
           {/* New Button - Modern style */}
           <div className="mb-8">
@@ -147,7 +187,7 @@ const Sidebar: React.FC<SidebarProps> = ({
               return (
                 <div
                   key={item.id}
-                  onClick={() => onTabOpen?.(item.id)}
+                  onClick={() => handleNavigationClick(item.id)}
                   className={`
                     flex items-center px-3 py-3 text-sm font-medium rounded-xl transition-all duration-200 group cursor-pointer relative
                     ${item.isActive
@@ -156,6 +196,17 @@ const Sidebar: React.FC<SidebarProps> = ({
                     }
                     ${isCollapsed ? 'justify-center px-2' : 'px-3'}
                   `}
+                  title={isCollapsed ? item.label : undefined}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={item.label}
+                  aria-current={item.isActive ? "page" : undefined}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleNavigationClick(item.id);
+                    }
+                  }}
                 >
                   <div className="relative">
                     <IconComponent
@@ -169,6 +220,9 @@ const Sidebar: React.FC<SidebarProps> = ({
                       <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-4 w-4 flex items-center justify-center">
                         {item.badge > 99 ? '99+' : item.badge}
                       </span>
+                    )}
+                    {isCollapsed && item.isActive && (
+                      <span className="absolute -bottom-1 -right-1 bg-blue-600 w-2 h-2 rounded-full"></span>
                     )}
                   </div>
                   {!isCollapsed && (
@@ -196,7 +250,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     className="flex items-center px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900 rounded-lg transition-all duration-200 cursor-pointer group"
                   >
                     <Folder className="mr-3 h-4 w-4 text-gray-400 group-hover:text-gray-500" />
-                    <span className="truncate">{folder.name}</span>
+                    <span className="truncate" title={folder.name}>{truncateFolderName(folder.name, 15)}</span>
                   </div>
                 ))}
               </div>
@@ -243,8 +297,9 @@ const Sidebar: React.FC<SidebarProps> = ({
             <Button
               variant="ghost"
               size="sm"
-              className="w-6 h-6 p-0 bg-white border border-gray-200 rounded-full shadow-sm hover:shadow-md"
-              onClick={() => setIsCollapsed(!isCollapsed)}
+              className="w-6 h-6 p-0 bg-white border border-gray-200 rounded-full shadow-sm hover:shadow-md sidebar-toggle"
+              onClick={handleToggleCollapse}
+              title={`${isCollapsed ? 'Expand' : 'Collapse'} sidebar (Ctrl+B)`}
             >
               <ChevronRight className={`h-3 w-3 transition-transform duration-200 ${isCollapsed ? 'rotate-180' : ''}`} />
             </Button>
@@ -264,7 +319,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       <Sheet
         isOpen={activeSheet === "my-drive"}
         onClose={() => setActiveSheet(null)}
-        title="My Drive"
+        title="My BRMH Drive"
       >
         <div className="space-y-4">
           <p className="text-gray-600">All your files and folders</p>
@@ -272,7 +327,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             {folders.map((folder) => (
               <div key={folder.key} className="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                 <Folder className="h-5 w-5 text-gray-400 mr-3" />
-                <span className="text-sm font-medium">{folder.name}</span>
+                <span className="text-sm font-medium" title={folder.name}>{truncateFolderName(folder.name, 18)}</span>
               </div>
             ))}
           </div>

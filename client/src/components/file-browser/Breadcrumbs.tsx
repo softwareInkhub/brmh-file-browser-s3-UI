@@ -1,5 +1,6 @@
 import React from "react";
 import { BreadcrumbItem } from "../../types";
+import { truncateFolderName } from "../../lib/utils";
 
 interface BreadcrumbsProps {
   path: string;
@@ -74,8 +75,9 @@ const Breadcrumbs: React.FC<BreadcrumbsProps> = ({ path, onNavigate }) => {
             <button
               className="hover:text-blue-600 transition-colors duration-200 whitespace-nowrap font-medium"
               onClick={() => onNavigate(crumb.path)}
+              title={crumb.name}
             >
-              {crumb.name}
+                             {truncateFolderName(crumb.name, 12)}
             </button>
           </React.Fragment>
         ))}

@@ -174,6 +174,7 @@
   .mobile-hidden {
     display: none;
   }
+
 }
 
 @media (min-width: 641px) {
@@ -191,11 +192,68 @@
 
 /* Google Drive specific styles */
 .google-drive-card {
-  @apply bg-white border border-gray-200 rounded-lg p-4 hover:border-gray-300 hover:shadow-md transition-all duration-200 cursor-pointer;
+  @apply bg-white border border-gray-200 rounded-lg p-3 hover:border-gray-300 hover:shadow-md transition-all duration-200 cursor-pointer;
 }
 
 .google-drive-card:hover {
   @apply transform -translate-y-1 shadow-lg;
+}
+
+/* Modern file grid enhancements */
+.file-grid-card {
+  @apply bg-white border border-gray-200 rounded-xl p-4 hover:border-gray-300 hover:shadow-lg transition-all duration-200 cursor-pointer;
+}
+
+.file-grid-card:hover {
+  @apply transform -translate-y-1 shadow-xl;
+}
+
+.file-list-item {
+  @apply flex items-center space-x-4 p-3 bg-white border border-gray-200 rounded-lg hover:border-gray-300 hover:bg-gray-50 transition-all duration-200 cursor-pointer;
+}
+
+.file-icon-container {
+  @apply flex-shrink-0 w-12 h-12 border rounded-lg flex items-center justify-center;
+}
+
+.file-icon-container.folder {
+  @apply bg-blue-50 border-blue-200 text-blue-600;
+}
+
+.file-icon-container.pdf {
+  @apply bg-red-50 border-red-200 text-red-600;
+}
+
+.file-icon-container.document {
+  @apply bg-blue-50 border-blue-200 text-blue-600;
+}
+
+.file-icon-container.spreadsheet {
+  @apply bg-green-50 border-green-200 text-green-600;
+}
+
+.file-icon-container.presentation {
+  @apply bg-orange-50 border-orange-200 text-orange-600;
+}
+
+.file-icon-container.image {
+  @apply bg-purple-50 border-purple-200 text-purple-600;
+}
+
+.file-icon-container.video {
+  @apply bg-red-50 border-red-200 text-red-600;
+}
+
+.file-icon-container.audio {
+  @apply bg-green-50 border-green-200 text-green-600;
+}
+
+.file-icon-container.archive {
+  @apply bg-yellow-50 border-yellow-200 text-yellow-600;
+}
+
+.file-icon-container.default {
+  @apply bg-gray-50 border-gray-200 text-gray-600;
 }
 
 .google-drive-icon {
@@ -275,6 +333,119 @@
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+/* Enhanced sidebar responsive behavior */
+.sidebar-responsive {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar-responsive.collapsed {
+  width: 4rem;
+}
+
+.sidebar-responsive.expanded {
+  width: 18rem;
+}
+
+/* Main content responsive adjustments */
+.main-content-responsive {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.main-content-responsive.sidebar-collapsed {
+  margin-left: 4rem;
+}
+
+.main-content-responsive.sidebar-expanded {
+  margin-left: 18rem;
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 768px) {
+  .sidebar-responsive {
+    transform: translateX(-100%);
+  }
+  
+  .sidebar-responsive.mobile-open {
+    transform: translateX(0);
+  }
+  
+  .main-content-responsive {
+    margin-left: 0 !important;
+  }
+}
+
+/* Prevent layout shifts during transitions */
+.layout-stable {
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Smooth hover effects for sidebar toggle */
+.sidebar-toggle {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar-toggle:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Sidebar transition states */
+.sidebar-transitioning {
+  pointer-events: none;
+}
+
+.sidebar-transitioning * {
+  pointer-events: none;
+}
+
+/* Prevent text selection during transitions */
+.sidebar-transitioning {
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+/* Browser navigation styles */
+.browser-nav-button {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.browser-nav-button:hover:not(:disabled) {
+  transform: scale(1.05);
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.browser-nav-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Smooth history transitions */
+.history-transition {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* URL state indicator */
+.url-state-indicator {
+  position: fixed;
+  top: 4px;
+  right: 4px;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  z-index: 9999;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.url-state-indicator.visible {
+  opacity: 1;
+}
+
 /* Enhanced loading states */
 .loading-shimmer {
   background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
@@ -344,4 +515,89 @@
   opacity: 0;
   transform: translateY(-20px);
   transition: opacity 300ms ease-in, transform 300ms ease-in;
+}
+
+/* Full-screen modal styles */
+.fullscreen-modal {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: none !important;
+  max-height: none !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  transform: none !important;
+}
+
+/* Responsive file preview styles */
+.file-preview-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.file-preview-image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+.file-preview-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  border-radius: 8px;
+}
+
+.file-preview-video {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 768px) {
+  .fullscreen-modal {
+    padding: 0 !important;
+  }
+  
+  .file-preview-container {
+    padding: 1rem;
+  }
+  
+  .file-preview-image,
+  .file-preview-video {
+    max-height: calc(100vh - 200px);
+  }
+}
+
+/* Ensure custom close button is properly positioned */
+.fullscreen-modal .custom-close-button {
+  z-index: 50;
+}
+
+/* Hide the default close button in the top-right corner */
+.fullscreen-modal [data-radix-dialog-close],
+.fullscreen-modal button[data-radix-dialog-close],
+.fullscreen-modal [role="dialog"] [data-radix-dialog-close],
+.fullscreen-modal .absolute.right-4.top-4,
+.fullscreen-modal button.absolute.right-4.top-4,
+.fullscreen-modal .DialogPrimitive.Close,
+.fullscreen-modal [data-radix-dialog-close].absolute.right-4.top-4 {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  position: absolute !important;
+  left: -9999px !important;
 }

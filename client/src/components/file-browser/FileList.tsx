@@ -1,5 +1,6 @@
 import React, { useState, useRef } from "react";
 import { S3Object } from "../../types";
+import { truncateFolderName } from "../../lib/utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 interface FileListProps {
@@ -253,7 +254,9 @@ const FileList: React.FC<FileListProps> = ({
                 </div>
               </TableCell>
               <TableCell className="font-medium">
-                {folder.name || folder.key.split("/").filter(Boolean).pop() || folder.key}
+                <span title={folder.name || folder.key.split("/").filter(Boolean).pop() || folder.key}>
+                  {truncateFolderName(folder.name || folder.key.split("/").filter(Boolean).pop() || folder.key, 18)}
+                </span>
               </TableCell>
               <TableCell>Folder</TableCell>
               <TableCell>-</TableCell>
@@ -313,7 +316,9 @@ const FileList: React.FC<FileListProps> = ({
                 </div>
               </TableCell>
               <TableCell className="font-medium">
-                {file.name || file.key.split("/").pop() || file.key}
+                <span title={file.name || file.key.split("/").pop() || file.key}>
+                  {truncateFolderName(file.name || file.key.split("/").pop() || file.key, 20)}
+                </span>
               </TableCell>
               <TableCell>{file.type || "Unknown"}</TableCell>
               <TableCell>{formatSize(file.size)}</TableCell>
