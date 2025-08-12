@@ -1526,6 +1526,161 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get folder hierarchy for column view
+  app.get("/api/files/hierarchy", async (req, res) => {
+    try {
+      const prefix = req.query.prefix as string || "";
+      
+      if (useMockData) {
+        // Use mock data for development
+        const hierarchy = buildMockHierarchy(prefix);
+        return res.json({
+          nodes: hierarchy,
+          prefix: prefix
+        });
+      }
+      
+      // Use real S3 data with ListObjectsV2
+      const command = new ListObjectsV2Command({
+        Bucket: bucketName,
+        Delimiter: '/',
+        Prefix: prefix
+      });
+
+      const response = await s3Client.send(command);
+      
+      const nodes: any[] = [];
+      
+      // Process folders (CommonPrefixes) - match exactly with /api/files
+      const folders = (response.CommonPrefixes || []).map(prefix => {
+        const key = prefix.Prefix || '';
+        return {
+          key,
+          name: key.split('/').filter(Boolean).pop() || key,
+          type: 'folder',
+          isFolder: true,
+          lastModified: null,
+          size: 0,
+          children: [],
+          isExpanded: false,
+          isLoading: false
+        };
+      });
+      
+      // Process files (Contents) - exclude keys ending with "/" - match exactly with /api/files
+      const files = (response.Contents || [])
+        .filter(item => (item.Key !== prefix) && !item.Key?.endsWith('/'))
+        .map(item => {
+          const key = item.Key || '';
+          return {
+            key,
+            name: key.split('/').pop() || key,
+            type: 'file',
+            isFolder: false,
+            size: item.Size,
+            lastModified: item.LastModified,
+            etag: item.ETag,
+            children: []
+          };
+        });
+      
+      // Combine and sort: folders first A-Z, then files A-Z
+      nodes.push(...folders, ...files);
+      nodes.sort((a, b) => {
+        if (a.type === 'folder' && b.type === 'file') return -1;
+        if (a.type === 'file' && b.type === 'folder') return 1;
+        return a.name.localeCompare(b.name);
+      });
+      
+      res.json({
+        nodes,
+        prefix: prefix
+      });
+    } catch (error) {
+      console.error("Error getting folder hierarchy:", error);
+      res.status(500).json({
+        error: "Failed to get folder hierarchy",
+        details: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // Helper function to build mock hierarchy (for development)
+  function buildMockHierarchy(prefix: string): any[] {
+    // Filter mock files based on prefix
+    const relevantFiles = mockFiles.filter(file => {
+      if (!prefix) return true;
+      return file.key.startsWith(prefix) && file.key !== prefix;
+    });
+    
+    // Group by immediate subdirectories and files
+    const groups = new Map<string, any[]>();
+    const filesInCurrentLevel: any[] = [];
+    
+    relevantFiles.forEach(file => {
+      const relativePath = prefix ? file.key.substring(prefix.length) : file.key;
+      const parts = relativePath.split('/').filter(Boolean);
+      
+      if (parts.length === 1) {
+        // This is a file in the current level
+        filesInCurrentLevel.push({
+          key: file.key,
+          name: file.name,
+          type: 'file',
+          size: file.size,
+          lastModified: file.lastModified,
+          children: []
+        });
+      } else if (parts.length > 1) {
+        // This is a file in a subdirectory
+        const firstPart = parts[0];
+        const groupKey = prefix ? `${prefix}${firstPart}/` : `${firstPart}/`;
+        
+        if (!groups.has(groupKey)) {
+          groups.set(groupKey, []);
+        }
+        
+        groups.get(groupKey)!.push({
+          key: file.key,
+          name: file.name,
+          type: 'file',
+          size: file.size,
+          lastModified: file.lastModified,
+          children: []
+        });
+      }
+    });
+    
+    // Convert to tree structure
+    const result: any[] = [];
+    
+    // Add folders
+    groups.forEach((files, folderKey) => {
+      const folderName = folderKey.split('/').slice(-2)[0]; // Get folder name
+      
+      result.push({
+        key: folderKey,
+        name: folderName,
+        type: 'folder',
+        children: files,
+        isExpanded: false,
+        isLoading: false
+      });
+    });
+    
+    // Add files in current level
+    result.push(...filesInCurrentLevel);
+    
+    // Sort folders first, then files
+    result.sort((a, b) => {
+      if (a.type === 'folder' && b.type === 'file') return -1;
+      if (a.type === 'file' && b.type === 'folder') return 1;
+      return a.name.localeCompare(b.name);
+    });
+    
+    return result;
+  }
+
   // Create HTTP server
   const httpServer = createServer(app);
 

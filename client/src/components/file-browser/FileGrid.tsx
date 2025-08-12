@@ -6,16 +6,16 @@ import { Grid3X3, List, MoreVertical, Star, Download, Share2, Trash2, Edit3, Fol
 interface FileGridProps {
   files: S3Object[];
   folders: S3Object[];
-  viewMode: "grid" | "list";
+  viewMode?: "grid" | "list" | "column";
   onFileClick: (file: S3Object) => void;
   onFolderClick: (folder: S3Object) => void;
-  onFileContextMenu: (file: S3Object, e: React.MouseEvent) => void;
-  onFolderContextMenu: (folder: S3Object, e: React.MouseEvent) => void;
+  onFileContextMenu: (item: S3Object, e: React.MouseEvent) => void;
+  onFolderContextMenu: (item: S3Object, e: React.MouseEvent) => void;
   onDrop?: (sourceKeys: string[], destinationPath: string) => void;
   currentPath?: string;
 }
 
-type ViewMode = 'grid' | 'list';
+type ViewMode = 'grid' | 'list' | 'column';
 
 const FileGrid: React.FC<FileGridProps> = ({
   files,

@@ -19,7 +19,21 @@ export interface S3Folder {
 }
 
 // File View Mode
-export type ViewMode = "grid" | "list";
+export type ViewMode = "grid" | "list" | "column";
+
+// TreeNode for column view hierarchy
+export interface TreeNode {
+  key: string;
+  name: string;
+  type: 'folder' | 'file';
+  size?: number;
+  lastModified?: Date;
+  isFolder?: boolean;
+  etag?: string;
+  children?: TreeNode[];
+  isExpanded?: boolean;
+  isLoading?: boolean;
+}
 
 // Context Menu Position
 export interface Position {

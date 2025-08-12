@@ -1,13 +1,12 @@
 import React from "react";
-import { Button } from "@/components/ui/button";
-import { SortAsc, SortDesc, Filter, Grid3X3, List } from "lucide-react";
+import { Grid3X3, List, GitBranch } from "lucide-react";
 import { BreadcrumbItem } from "../../types";
 import { truncateFolderName } from "../../lib/utils";
 
 interface UnifiedNavBarProps {
   // ActionBar props
-  viewMode: "grid" | "list";
-  onViewModeChange: (mode: "grid" | "list") => void;
+  viewMode: "grid" | "list" | "column";
+  onViewModeChange: (mode: "grid" | "list" | "column") => void;
   sortBy: string;
   sortDirection: "asc" | "desc";
   onSort: (column: string) => void;
@@ -104,50 +103,10 @@ const UnifiedNavBar: React.FC<UnifiedNavBarProps> = ({
         ))}
       </div>
 
-      {/* Right section - Filter and Sort controls */}
-      <div className="flex items-center gap-2 ml-4 flex-shrink-0">
-        {/* Filter button */}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-8 px-3 text-gray-600 hover:bg-gray-100 rounded-lg"
-        >
-          <Filter className="h-4 w-4 mr-2" />
-          Filter
-        </Button>
-
-        {/* Sort options */}
-        <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onSort("name")}
-            className={`h-8 px-3 text-sm rounded-lg ${
-              sortBy === "name" ? "bg-blue-50 text-blue-700" : "text-gray-600 hover:bg-gray-100"
-            }`}
-          >
-            Name
-            {sortBy === "name" && (
-              sortDirection === "asc" ? <SortAsc className="h-4 w-4 ml-1" /> : <SortDesc className="h-4 w-4 ml-1" />
-            )}
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onSort("lastModified")}
-            className={`h-8 px-3 text-sm rounded-lg ${
-              sortBy === "lastModified" ? "bg-blue-50 text-blue-700" : "text-gray-600 hover:bg-gray-100"
-            }`}
-          >
-            Modified
-            {sortBy === "lastModified" && (
-              sortDirection === "asc" ? <SortAsc className="h-4 w-4 ml-1" /> : <SortDesc className="h-4 w-4 ml-1" />
-            )}
-          </Button>
-        </div>
-
+      {/* Right section - View mode toggle only */}
+      <div className="flex items-center gap-1 ml-4 flex-shrink-0">
         {/* View mode toggle */}
-        <div className="flex items-center gap-1 ml-2">
+        <div className="flex items-center gap-1">
           <button
             onClick={() => onViewModeChange('grid')}
             className={`p-2 rounded-lg transition-colors ${
@@ -167,6 +126,16 @@ const UnifiedNavBar: React.FC<UnifiedNavBarProps> = ({
             }`}
           >
             <List className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => onViewModeChange('column')}
+            className={`p-2 rounded-lg transition-colors ${
+              viewMode === 'column' 
+                ? 'bg-blue-100 text-blue-600' 
+                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <GitBranch className="w-4 h-4" />
           </button>
         </div>
       </div>

@@ -392,6 +392,7 @@ const RecentFiles: React.FC = () => {
             <FileGrid
               files={sortedFiles}
               folders={[]} // No folders in recent files view
+              viewMode="grid"
               onFileClick={handleFileClick}
               onFolderClick={handleFolderClick}
               onFileContextMenu={handleContextMenu}

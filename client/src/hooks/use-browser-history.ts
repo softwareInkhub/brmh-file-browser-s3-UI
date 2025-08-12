@@ -6,7 +6,7 @@ export interface BrowserHistoryState {
   currentPath: string;
   activeTabId: string;
   searchTerm: string;
-  viewMode: 'grid' | 'list';
+  viewMode: 'grid' | 'list' | 'column';
   sortBy: string;
   sortDirection: 'asc' | 'desc';
   selectedFileType: string;
@@ -43,7 +43,7 @@ export interface UseBrowserHistoryReturn {
   
   // State update methods
   updateSearchTerm: (term: string, replace?: boolean) => void;
-  updateViewMode: (mode: 'grid' | 'list', replace?: boolean) => void;
+  updateViewMode: (mode: 'grid' | 'list' | 'column', replace?: boolean) => void;
   updateSorting: (sortBy: string, sortDirection: 'asc' | 'desc', replace?: boolean) => void;
   updateFileTypeFilter: (type: string, replace?: boolean) => void;
   toggleSidebar: (collapsed: boolean, replace?: boolean) => void;
@@ -98,7 +98,7 @@ export function useBrowserHistory(): UseBrowserHistoryReturn {
         currentPath: params.get('prefix') || '',
         activeTabId: params.get('tab') || 'my-drive',
         searchTerm: params.get('search') || '',
-        viewMode: (params.get('view') as 'grid' | 'list') || 'grid',
+        viewMode: (params.get('view') as 'grid' | 'list' | 'column') || 'grid',
         sortBy: params.get('sortBy') || 'name',
         sortDirection: (params.get('sortDir') as 'asc' | 'desc') || 'asc',
         selectedFileType: params.get('fileType') || 'all',
@@ -266,7 +266,7 @@ export function useBrowserHistory(): UseBrowserHistoryReturn {
     updateHistory({ searchTerm: term }, replace);
   }, [updateHistory]);
 
-  const updateViewMode = useCallback((mode: 'grid' | 'list', replace = false) => {
+  const updateViewMode = useCallback((mode: 'grid' | 'list' | 'column', replace = false) => {
     updateHistory({ viewMode: mode }, replace);
   }, [updateHistory]);
 

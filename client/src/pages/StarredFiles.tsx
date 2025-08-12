@@ -391,6 +391,7 @@ const StarredFiles: React.FC = () => {
             <FileGrid
               files={sortedFiles}
               folders={[]} // No folders in starred files view
+              viewMode="grid"
               onFileClick={handleFileClick}
               onFolderClick={handleFolderClick}
               onFileContextMenu={handleContextMenu}

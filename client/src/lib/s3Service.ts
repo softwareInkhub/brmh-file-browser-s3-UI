@@ -1,5 +1,5 @@
 import { apiRequest } from "./queryClient";
-import { S3Object, S3Folder, FilePreview } from "../types";
+import { S3Object, S3Folder, FilePreview, TreeNode } from "../types";
 
 // Base API URL
 const API_BASE = "/api";
@@ -594,4 +594,30 @@ export async function listSharedFiles(): Promise<{
   }
   
   return data;
+}
+
+/**
+ * Get folder hierarchy for column view
+ * @param prefix The prefix to start from (empty for root)
+ * @returns Promise with the folder hierarchy
+ */
+export async function getFolderHierarchy(prefix: string = ""): Promise<{
+  nodes: TreeNode[];
+  prefix: string;
+}> {
+  const response = await fetch(`${API_BASE}/files/hierarchy?prefix=${encodeURIComponent(prefix)}`);
+  const responseClone = response.clone(); // Clone response for error handling
+  
+  if (!response.ok) {
+    // Try to parse the error as JSON first for structured errors
+    try {
+      const errorData = await responseClone.json();
+      throw new Error(`Failed to get folder hierarchy: ${errorData.error}. ${errorData.details || ''}`);
+    } catch (e) {
+      // If not JSON, use text response
+      const errorText = await response.text();
+      throw new Error(`Failed to get folder hierarchy: ${errorText}`);
+    }
+  }
+  return await response.json();
 }

@@ -1,4 +1,18 @@
 // MIME type utility for file handling
+import React from 'react';
+import { 
+  FileText, 
+  FileImage, 
+  FileAudio, 
+  FileVideo, 
+  FileArchive, 
+  FileCode, 
+  File,
+  FileType,
+  FileSpreadsheet,
+  Presentation,
+  FileText as FileWord
+} from 'lucide-react';
 
 /**
  * Common file extensions and their corresponding MIME types
@@ -170,6 +184,46 @@ export function getCategoryFromMimeType(mimeType: string): FileCategory {
 export function getFileCategoryFromName(filename: string): FileCategory {
   const mimeType = getMimeTypeFromExtension(filename);
   return getCategoryFromMimeType(mimeType);
+}
+
+/**
+ * Get file icon component based on filename
+ */
+export function getFileIcon(filename: string): React.ReactElement {
+  const extension = filename.split('.').pop()?.toLowerCase() || '';
+  const category = getFileCategoryFromName(filename);
+  
+  // Document types
+  if (['pdf'].includes(extension)) {
+    return <FileType className="w-4 h-4 text-red-500" />;
+  }
+  if (['doc', 'docx', 'odt', 'rtf'].includes(extension)) {
+    return <FileWord className="w-4 h-4 text-blue-500" />;
+  }
+  if (['xls', 'xlsx', 'ods', 'csv'].includes(extension)) {
+    return <FileSpreadsheet className="w-4 h-4 text-green-500" />;
+  }
+  if (['ppt', 'pptx', 'odp'].includes(extension)) {
+    return <Presentation className="w-4 h-4 text-orange-500" />;
+  }
+  
+  // Category-based icons
+  switch (category) {
+    case FileCategory.IMAGE:
+      return <FileImage className="w-4 h-4 text-green-500" />;
+    case FileCategory.AUDIO:
+      return <FileAudio className="w-4 h-4 text-purple-500" />;
+    case FileCategory.VIDEO:
+      return <FileVideo className="w-4 h-4 text-red-500" />;
+    case FileCategory.ARCHIVE:
+      return <FileArchive className="w-4 h-4 text-yellow-500" />;
+    case FileCategory.CODE:
+      return <FileCode className="w-4 h-4 text-blue-500" />;
+    case FileCategory.TEXT:
+      return <FileText className="w-4 h-4 text-gray-500" />;
+    default:
+      return <File className="w-4 h-4 text-gray-400" />;
+  }
 }
 
 /**
