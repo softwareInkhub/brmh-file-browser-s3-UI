@@ -9,7 +9,7 @@ import StarredContent from "@/components/file-browser/StarredContent";
 import SharedContent from "@/components/file-browser/SharedContent";
 import TrashContent from "@/components/file-browser/TrashContent";
 import SettingsContent from "@/components/file-browser/SettingsContent";
-import FilePreviewModal from "@/components/file-browser/FilePreviewModal";
+import FilePreviewTab from "@/components/file-browser/FilePreviewTab";
 import UploadModal from "@/components/file-browser/UploadModal";
 import NewFolderModal from "@/components/file-browser/NewFolderModal";
 import RenameModal from "@/components/file-browser/RenameModal";
@@ -35,7 +35,7 @@ import {
   dropFiles
 } from "@/lib/s3Service";
 import { S3Object, Position, ViewMode, UploadStatus, S3Folder } from "../types";
-import { Home, Clock, Star, Users, Trash2, Settings } from "lucide-react";
+import { Home, Clock, Star, Users, Trash2, Settings, FileText } from "lucide-react";
 
 // Tab configuration
 const TAB_CONFIG = {
@@ -84,8 +84,6 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
   const [files, setFiles] = useState<S3Object[]>([]);
   const [folders, setFolders] = useState<S3Object[]>([]);
   const [allFolders, setAllFolders] = useState<S3Folder[]>([]);
-  const [selectedItem, setSelectedItem] = useState<S3Object | undefined>();
-  const [previewUrl, setPreviewUrl] = useState<string | undefined>();
   const [isLoading, setIsLoading] = useState(false);
   const [contextMenu, setContextMenu] = useState<{
     visible: boolean;
@@ -105,9 +103,105 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
       id: "my-drive",
       label: "My BRMH Drive",
       icon: Home,
-      isActive: true
+      isActive: true,
+      type: 'navigation'
     }
   ]);
+
+  // File preview tabs management
+  const [filePreviewTabs, setFilePreviewTabs] = useState<Map<string, S3Object>>(new Map());
+  const [filePreviewUrls, setFilePreviewUrls] = useState<Map<string, string>>(new Map());
+
+  // Open file in a new tab
+  const openFileInTab = async (file: S3Object) => {
+    const tabId = `file-${file.key}`;
+    
+    // Check if file is already open in a tab
+    if (filePreviewTabs.has(tabId)) {
+      // Switch to existing tab
+      handleTabClick(tabId);
+      return;
+    }
+
+    // Add new file preview tab
+    setFilePreviewTabs(prev => new Map(prev).set(tabId, file));
+    
+    // Generate preview URL
+    try {
+      const preview = await getFilePreviewUrl(file.key);
+      setFilePreviewUrls(prev => new Map(prev).set(tabId, preview.url));
+    } catch (error) {
+      console.error("Error getting preview URL:", error);
+    }
+
+    // Add tab to tabs array
+    const fileName = file.key.split("/").pop() || file.key;
+    const newTab: Tab = {
+      id: tabId,
+      label: fileName,
+      icon: FileText, // Will be overridden by TabManager
+      isActive: false,
+      type: 'file-preview',
+      fileKey: file.key
+    };
+
+    setTabs(prev => [...prev, newTab]);
+    
+    // Switch to the new tab
+    handleTabClick(tabId);
+  };
+
+  // Close file preview tab
+  const closeFilePreviewTab = (tabId: string) => {
+    // Get current tabs before removal to determine which tab to switch to
+    const currentTabs = tabs;
+    const closedTabIndex = currentTabs.findIndex(tab => tab.id === tabId);
+    const wasActiveTab = currentState.activeTabId === tabId;
+    
+    // Remove from file preview tabs
+    setFilePreviewTabs(prev => {
+      const newMap = new Map(prev);
+      newMap.delete(tabId);
+      return newMap;
+    });
+
+    // Remove from preview URLs
+    setFilePreviewUrls(prev => {
+      const newMap = new Map(prev);
+      newMap.delete(tabId);
+      return newMap;
+    });
+
+    // Remove from tabs array
+    setTabs(prev => prev.filter(tab => tab.id !== tabId));
+
+    // If the closed tab was active, switch to the previous tab or first available tab
+    if (wasActiveTab) {
+      const remainingTabs = currentTabs.filter(tab => tab.id !== tabId);
+      if (remainingTabs.length > 0) {
+        // Try to switch to the previous tab (tab before the closed one)
+        let targetTabId: string;
+        if (closedTabIndex > 0) {
+          // Switch to the tab before the closed one
+          targetTabId = currentTabs[closedTabIndex - 1].id;
+        } else {
+          // If closed tab was first, switch to the next tab
+          targetTabId = currentTabs[closedTabIndex + 1]?.id || remainingTabs[0].id;
+        }
+        
+        // Ensure the target tab still exists in remaining tabs
+        if (remainingTabs.find(tab => tab.id === targetTabId)) {
+          handleTabClick(targetTabId);
+        } else {
+          // Fallback to first remaining tab
+          handleTabClick(remainingTabs[0].id);
+        }
+      } else {
+        // If no tabs remain, ensure "my-drive" is active
+        handleTabClick('my-drive');
+      }
+    }
+  };
   
   // Track API errors for better error handling
   const [apiError, setApiError] = useState<{
@@ -135,9 +229,9 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
     if (currentState.selectedItemKey) {
       const allItems = [...files, ...folders];
       const found = allItems.find(item => item.key === currentState.selectedItemKey);
-      setSelectedItem(found);
+      // setSelectedItem(found); // This state variable was removed
     } else {
-      setSelectedItem(undefined);
+      // setSelectedItem(undefined); // This state variable was removed
     }
   }, [currentState.selectedItemKey, files, folders]);
 
@@ -245,27 +339,75 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
     navigateToTab(tabId);
   };
 
+  // Tab click handler
   const handleTabClick = (tabId: string) => {
+    // Update tab active state
+    setTabs(prev => prev.map(tab => ({
+      ...tab,
+      isActive: tab.id === tabId
+    })));
+
+    // Navigate to tab
     navigateToTab(tabId);
   };
 
+  // Tab close handler
   const handleTabClose = (tabId: string) => {
-    if (tabs.length === 1) return; // Don't close the last tab
-    
-    setTabs(prev => prev.filter(tab => tab.id !== tabId));
-    
-    // If we're closing the active tab, switch to the first remaining tab
-    if (currentState.activeTabId === tabId) {
-      const remainingTabs = tabs.filter(tab => tab.id !== tabId);
-      if (remainingTabs.length > 0) {
-        const newActiveTab = remainingTabs[0];
-        navigateToTab(newActiveTab.id, true);
-        setTabs(prev => prev.map(tab => ({
-          ...tab,
-          isActive: tab.id === newActiveTab.id
-        })));
+    // Check if it's a file preview tab
+    if (tabId.startsWith('file-')) {
+      closeFilePreviewTab(tabId);
+    } else {
+      // For navigation tabs, prevent closing essential tabs like "my-drive"
+      if (tabId === 'my-drive') {
+        // Don't allow closing the main drive tab
+        return;
+      }
+      
+      // For other navigation tabs, remove them and switch to previous tab
+      const currentTabs = tabs;
+      const closedTabIndex = currentTabs.findIndex(tab => tab.id === tabId);
+      const wasActiveTab = currentState.activeTabId === tabId;
+      
+      // Remove the tab from the tabs array
+      setTabs(prev => prev.filter(tab => tab.id !== tabId));
+      
+      // If the closed tab was active, switch to the previous tab
+      if (wasActiveTab) {
+        const remainingTabs = currentTabs.filter(tab => tab.id !== tabId);
+        if (remainingTabs.length > 0) {
+          // Try to switch to the previous tab (tab before the closed one)
+          let targetTabId: string;
+          if (closedTabIndex > 0) {
+            // Switch to the tab before the closed one
+            targetTabId = currentTabs[closedTabIndex - 1].id;
+          } else {
+            // If closed tab was first, switch to the next tab
+            targetTabId = currentTabs[closedTabIndex + 1]?.id || remainingTabs[0].id;
+          }
+          
+          // Ensure the target tab still exists in remaining tabs
+          if (remainingTabs.find(tab => tab.id === targetTabId)) {
+            handleTabClick(targetTabId);
+          } else {
+            // Fallback to first remaining tab
+            handleTabClick(remainingTabs[0].id);
+          }
+        } else {
+          // If no tabs remain, ensure "my-drive" is active
+          handleTabClick('my-drive');
+        }
       }
     }
+  };
+
+  // Tab reorder handler
+  const handleTabReorder = (fromIndex: number, toIndex: number) => {
+    setTabs(prev => {
+      const newTabs = [...prev];
+      const [movedTab] = newTabs.splice(fromIndex, 1);
+      newTabs.splice(toIndex, 0, movedTab);
+      return newTabs;
+    });
   };
 
   // Helper to detect AWS S3 errors
@@ -529,24 +671,11 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
     navigateToPath(formattedPath);
   };
 
-  // Preview file
-  const handleFilePreview = async (file: S3Object) => {
-    try {
-      setSelectedItem(file);
-      openPreview(file.key);
-      setPreviewUrl(undefined);
-
-      const preview = await getFilePreviewUrl(file.key);
-      setPreviewUrl(preview.url);
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: `Failed to preview file: ${(error as Error).message}`,
-        variant: "destructive",
-      });
-    }
+  // File click handler - now opens in tab
+  const handleFileClick = (file: S3Object) => {
+    openFileInTab(file);
   };
-
+  
   // Upload files
   const handleUploadFiles = async (files: File[]) => {
     if (files.length === 0) return;
@@ -637,10 +766,11 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
 
   // Rename file or folder
   const handleRename = async (newName: string) => {
-    if (!selectedItem) return;
+    const item = contextMenu.item;
+    if (!item) return;
     
     try {
-      await renameFile(selectedItem.key, newName);
+      await renameFile(item.key, newName);
       await fetchFiles();
       
       // Close the rename modal after successful rename
@@ -661,10 +791,11 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
 
   // Move file or folder
   const handleMove = async (destinationPath: string) => {
-    if (!selectedItem) return;
+    const item = contextMenu.item;
+    if (!item) return;
     
     try {
-      await moveFile(selectedItem.key, destinationPath);
+      await moveFile(item.key, destinationPath);
       await fetchFiles();
       
       // Close the move modal after successful move
@@ -685,10 +816,11 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
 
   // Delete file or folder (move to trash)
   const handleDelete = async () => {
-    if (!selectedItem) return;
+    const item = contextMenu.item;
+    if (!item) return;
     
     try {
-      await moveToTrash(selectedItem.key);
+      await moveToTrash(item.key);
       await fetchFiles();
       
       // Close the delete confirmation modal
@@ -709,10 +841,10 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
 
   // Download file
   const handleDownload = () => {
-    if (!selectedItem) return;
+    // if (!selectedItem) return; // This state variable was removed
     
     try {
-      downloadFile(selectedItem.key);
+      downloadFile(/* selectedItem.key */ "");
     } catch (error) {
       toast({
         title: "Error",
@@ -724,18 +856,18 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
 
   // Star/unstar file
   const handleToggleStar = async () => {
-    if (!selectedItem) return;
+    // if (!selectedItem) return; // This state variable was removed
     
     try {
-      const isCurrentlyStarred = starredItems.has(selectedItem.key);
-      await toggleStar(selectedItem.key, !isCurrentlyStarred);
+      const isCurrentlyStarred = starredItems.has(/* selectedItem.key */ "");
+      await toggleStar(/* selectedItem.key */ "", !isCurrentlyStarred);
       
       // Update local state
       const newStarredItems = new Set(starredItems);
       if (isCurrentlyStarred) {
-        newStarredItems.delete(selectedItem.key);
+        newStarredItems.delete(/* selectedItem.key */ "");
       } else {
-        newStarredItems.add(selectedItem.key);
+        newStarredItems.add(/* selectedItem.key */ "");
       }
       setStarredItems(newStarredItems);
       
@@ -746,7 +878,7 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
     } catch (error) {
       toast({
         title: "Error",
-        description: `Failed to ${starredItems.has(selectedItem.key) ? "unstar" : "star"} item: ${(error as Error).message}`,
+        description: `Failed to ${starredItems.has(/* selectedItem.key */ "") ? "unstar" : "star"} item: ${(error as Error).message}`,
         variant: "destructive",
       });
     }
@@ -755,7 +887,7 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
   // Context menu handlers
   const handleContextMenu = (item: S3Object, e: React.MouseEvent) => {
     e.preventDefault();
-    setSelectedItem(item);
+    // setSelectedItem(item); // This state variable was removed
     setContextMenu({
       visible: true,
       position: { x: e.clientX, y: e.clientY },
@@ -769,23 +901,51 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
     
     switch (action) {
       case 'preview':
-        handleFilePreview(item);
+        openFileInTab(item);
         break;
       case 'download':
-        handleDownload();
+        downloadFile(item.key, item.name);
         break;
       case 'rename':
-        openRenameModal(item.key);
+        openRenameModal(item.key, true);
         break;
       case 'move':
-        openMoveModal(item.key);
+        openMoveModal(item.key, true);
         break;
       case 'delete':
-        openDeleteModal(item.key);
+        openDeleteModal(item.key, true);
         break;
       case 'star':
-        handleToggleStar();
+        handleToggleStarForItem(item);
         break;
+    }
+  };
+
+  // Handle toggle star for a specific item
+  const handleToggleStarForItem = async (item: S3Object) => {
+    try {
+      const isCurrentlyStarred = starredItems.has(item.key);
+      await toggleStar(item.key, !isCurrentlyStarred);
+      
+      // Update local state
+      const newStarredItems = new Set(starredItems);
+      if (isCurrentlyStarred) {
+        newStarredItems.delete(item.key);
+      } else {
+        newStarredItems.add(item.key);
+      }
+      setStarredItems(newStarredItems);
+      
+      toast({
+        title: "Success",
+        description: isCurrentlyStarred ? "Item removed from starred" : "Item added to starred",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: `Failed to ${starredItems.has(item.key) ? "unstar" : "star"} item: ${(error as Error).message}`,
+        variant: "destructive",
+      });
     }
   };
 
@@ -793,10 +953,6 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
     setContextMenu({ ...contextMenu, visible: false });
   };
 
-  const handleFileClick = (file: S3Object) => {
-    handleFilePreview(file);
-  };
-  
   // Drag and drop handlers
   const handleFileDrop = async (sourceKeys: string[], destinationPath: string) => {
     if (sourceKeys.length === 0) return;
@@ -884,7 +1040,7 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
             isCollapsed={currentState.isSidebarCollapsed}
             onToggleCollapse={toggleSidebar}
           />
-          <main className={`flex-1 min-h-[calc(100vh-64px)] bg-white main-content-responsive ${
+          <main className={`flex-1 min-h-[calc(100vh-64px)] bg-white main-content-responsive main-content-fixed ${
             currentState.isSidebarCollapsed ? 'sidebar-collapsed' : 'sidebar-expanded'
           }`}>
             {/* Tab Manager */}
@@ -893,6 +1049,7 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
               activeTabId={currentState.activeTabId}
               onTabClick={handleTabClick}
               onTabClose={handleTabClose}
+              onTabReorder={handleTabReorder}
             />
             
             {/* Tab Content */}
@@ -905,12 +1062,10 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
                   viewMode={currentState.viewMode}
                   sortBy={currentState.sortBy}
                   sortDirection={currentState.sortDirection}
-
                   isLoading={isLoading}
                   hasContent={hasContent}
                   onViewModeChange={updateViewMode}
                   onSort={handleSort}
-
                   onFileClick={handleFileClick}
                   onFolderClick={handleFolderClick}
                   onFileContextMenu={handleContextMenu}
@@ -927,34 +1082,39 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
               {currentState.activeTabId === "shared" && <SharedContent />}
               {currentState.activeTabId === "trash" && <TrashContent />}
               {currentState.activeTabId === "settings" && <SettingsContent />}
+              
+              {/* File Preview Tabs */}
+              {currentState.activeTabId.startsWith('file-') && (() => {
+                const file = filePreviewTabs.get(currentState.activeTabId);
+                const previewUrl = filePreviewUrls.get(currentState.activeTabId);
+                
+                if (!file) return null;
+                
+                return (
+                  <FilePreviewTab
+                    file={file}
+                    previewUrl={previewUrl}
+                    onDownload={() => downloadFile(file.key, file.name)}
+                    onStar={() => handleToggleStar()}
+                    onRename={() => {
+                      openRenameModal(file.key, true);
+                    }}
+                    onMove={() => {
+                      openMoveModal(file.key, true);
+                    }}
+                    onDelete={() => {
+                      openDeleteModal(file.key, true);
+                    }}
+                    isStarred={starredItems.has(file.key)}
+                  />
+                );
+              })()}
             </div>
           </main>
         </div>
       </div>
 
       {/* Modals */}
-      <FilePreviewModal
-        isOpen={currentState.isPreviewModalOpen}
-        onClose={closePreview}
-        file={selectedItem}
-        previewUrl={previewUrl}
-        onDownload={handleDownload}
-        onStar={handleToggleStar}
-        onRename={() => {
-          closePreview();
-          openRenameModal(selectedItem?.key || '', true);
-        }}
-        onMove={() => {
-          closePreview();
-          openMoveModal(selectedItem?.key || '', true);
-        }}
-        onDelete={() => {
-          closePreview();
-          openDeleteModal(selectedItem?.key || '', true);
-        }}
-        isStarred={selectedItem ? starredItems.has(selectedItem.key) : false}
-      />
-
       <UploadModal
         isOpen={currentState.isUploadModalOpen}
         onClose={closeUploadModal}
@@ -974,14 +1134,14 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
         isOpen={currentState.isRenameModalOpen}
         onClose={closeRenameModal}
         onRename={handleRename}
-        item={selectedItem}
+        item={contextMenu.item}
       />
 
       <MoveModal
         isOpen={currentState.isMoveModalOpen}
         onClose={closeMoveModal}
         onMove={handleMove}
-        item={selectedItem}
+        item={contextMenu.item}
         folders={allFolders}
       />
 
@@ -989,7 +1149,7 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
         isOpen={currentState.isDeleteModalOpen}
         onClose={closeDeleteModal}
         onDelete={handleDelete}
-        item={selectedItem}
+        item={contextMenu.item}
       />
 
       <ContextMenu
@@ -997,34 +1157,30 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
         isVisible={contextMenu.visible}
         onClose={closeContextMenu}
         item={contextMenu.item}
-        onPreview={() => {
-          closeContextMenu();
-          handleFilePreview(contextMenu.item!);
-        }}
         onDownload={() => {
-          closeContextMenu();
-          setSelectedItem(contextMenu.item);
-          handleDownload();
+          if (contextMenu.item) {
+            downloadFile(contextMenu.item.key, contextMenu.item.name);
+          }
         }}
         onRename={() => {
-          closeContextMenu();
-          setSelectedItem(contextMenu.item);
-          openRenameModal(contextMenu.item?.key || '');
+          if (contextMenu.item) {
+            openRenameModal(contextMenu.item.key, true);
+          }
         }}
         onMove={() => {
-          closeContextMenu();
-          setSelectedItem(contextMenu.item);
-          openMoveModal(contextMenu.item?.key || '');
+          if (contextMenu.item) {
+            openMoveModal(contextMenu.item.key, true);
+          }
         }}
         onStar={() => {
-          closeContextMenu();
-          setSelectedItem(contextMenu.item);
-          handleToggleStar();
+          if (contextMenu.item) {
+            handleToggleStarForItem(contextMenu.item);
+          }
         }}
         onDelete={() => {
-          closeContextMenu();
-          setSelectedItem(contextMenu.item);
-          openDeleteModal(contextMenu.item?.key || '');
+          if (contextMenu.item) {
+            openDeleteModal(contextMenu.item.key, true);
+          }
         }}
         isStarred={contextMenu.item ? starredItems.has(contextMenu.item.key) : false}
       />

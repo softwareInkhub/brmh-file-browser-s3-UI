@@ -1,17 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { S3Object, FilePreview } from "../../types";
+import { S3Object } from "../../types";
 import { Edit, Loader2, Share2 } from "lucide-react";
 import FileEditor from "./FileEditor";
 import ShareFileModal from "./ShareFileModal";
 import { isFileEditable, isTextViewable } from "../../lib/mimeTypes";
 import { getFileContent, saveFileContent } from "../../lib/s3Service";
 
-interface FilePreviewModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  file?: S3Object;
+interface FilePreviewTabProps {
+  file: S3Object;
   previewUrl?: string;
   onDownload: () => void;
   onStar: () => void;
@@ -20,9 +17,7 @@ interface FilePreviewModalProps {
   isStarred: boolean;
 }
 
-const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
-  isOpen,
-  onClose,
+const FilePreviewTab: React.FC<FilePreviewTabProps> = ({
   file,
   previewUrl,
   onDownload,
@@ -39,6 +34,13 @@ const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   
   const canEdit = file ? isTextViewable(file.key) : false;
+  
+  // Reset editing state when file changes
+  useEffect(() => {
+    setIsEditing(false);
+    setFileContent("");
+    setEditorError(null);
+  }, [file]);
   
   // Fetch file content when entering edit mode
   const handleEditClick = async () => {
@@ -85,17 +87,6 @@ const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
     setIsEditing(false);
     setEditorError(null);
   };
-  
-  // Reset editing state when modal is closed
-  useEffect(() => {
-    if (!isOpen) {
-      setIsEditing(false);
-      setFileContent("");
-      setEditorError(null);
-    }
-  }, [isOpen]);
-  
-  if (!file) return null;
 
   // Get file name from key
   const getFileName = (key: string): string => {
@@ -330,152 +321,135 @@ const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
         file={file} 
       />
       
-      {/* Preview Modal */}
-      <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="fullscreen-modal flex flex-col bg-white">
-          <DialogHeader className="px-6 py-4 border-b border-gray-200 relative">
-            <div className="flex items-center justify-between">
-              <DialogTitle className="text-lg font-medium">
-                {getFileName(file.key)}
-              </DialogTitle>
-              <div className="flex items-center space-x-4">
-                <button
-                  onClick={onStar}
-                  className={`text-gray-400 hover:text-yellow-500 transition-colors ${
-                    isStarred ? "text-yellow-500" : ""
-                  }`}
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill={isStarred ? "currentColor" : "none"}
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="h-5 w-5"
-                  >
-                    <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-                  </svg>
-                </button>
-                <button
-                  onClick={onDownload}
-                  className="text-gray-400 hover:text-gray-700 transition-colors"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="h-5 w-5"
-                  >
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                    <polyline points="7 10 12 15 17 10" />
-                    <line x1="12" y1="15" x2="12" y2="3" />
-                  </svg>
-                </button>
-                                 <button
-                   onClick={onClose}
-                   className="custom-close-button text-gray-400 hover:text-gray-700 transition-colors ml-2"
-                 >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="h-5 w-5"
-                  >
-                    <line x1="18" y1="6" x2="6" y2="18" />
-                    <line x1="6" y1="6" x2="18" y2="18" />
-                  </svg>
-                </button>
-              </div>
+      {/* File Preview Tab Content */}
+      <div className="flex flex-col h-full bg-white">
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-gray-200 relative">
+          <div className="flex items-center justify-between">
+            <div className="text-lg font-medium">
+              {getFileName(file.key)}
             </div>
-          </DialogHeader>
-
-          <div className="flex-1 overflow-auto bg-gray-50 relative">
-            <div className="file-preview-container">
-              {renderPreview()}
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={onStar}
+                className={`text-gray-400 hover:text-yellow-500 transition-colors ${
+                  isStarred ? "text-yellow-500" : ""
+                }`}
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill={isStarred ? "currentColor" : "none"}
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-5 w-5"
+                >
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                </svg>
+              </button>
+              <button
+                onClick={onDownload}
+                className="text-gray-400 hover:text-gray-700 transition-colors"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-5 w-5"
+                >
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+              </button>
             </div>
           </div>
+        </div>
 
-          <div className="px-6 py-4 border-t border-gray-200 bg-white">
-            <div className="flex items-center justify-between">
-              <div className="text-sm text-gray-500">
-                <span>{formatSize(file.size)}</span> • <span>{file.type}</span> •
-                Last modified <span>{formatDate(file.lastModified)}</span>
-              </div>
-              <div className="flex items-center space-x-3">
-                {canEdit && !isEditing && (
-                  <Button variant="outline" size="sm" onClick={handleEditClick} disabled={isLoadingContent}>
-                    {isLoadingContent ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
-                        Loading...
-                      </>
-                    ) : (
-                      <>
-                        <Edit className="h-4 w-4 mr-1.5" />
-                        Edit
-                      </>
-                    )}
-                  </Button>
-                )}
-                <Button variant="outline" size="sm" onClick={() => setIsShareModalOpen(true)}>
-                  <Share2 className="h-4 w-4 mr-1.5" />
-                  Share
+        {/* Preview Content */}
+        <div className="flex-1 overflow-auto bg-gray-50 relative">
+          <div className="file-preview-container">
+            {renderPreview()}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-gray-200 bg-white">
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-gray-500">
+              <span>{formatSize(file.size)}</span> • <span>{file.type}</span> •
+              Last modified <span>{formatDate(file.lastModified)}</span>
+            </div>
+            <div className="flex items-center space-x-3">
+              {canEdit && !isEditing && (
+                <Button variant="outline" size="sm" onClick={handleEditClick} disabled={isLoadingContent}>
+                  {isLoadingContent ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                      Loading...
+                    </>
+                  ) : (
+                    <>
+                      <Edit className="h-4 w-4 mr-1.5" />
+                      Edit
+                    </>
+                  )}
                 </Button>
-                <Button variant="outline" size="sm" onClick={onRename}>
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="h-4 w-4 mr-1.5"
-                  >
-                    <path d="M12 20h9" />
-                    <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
-                  </svg>
-                  Rename
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={onDelete}
-                  className="text-red-600 hover:bg-red-50"
+              )}
+              <Button variant="outline" size="sm" onClick={() => setIsShareModalOpen(true)}>
+                <Share2 className="h-4 w-4 mr-1.5" />
+                Share
+              </Button>
+              <Button variant="outline" size="sm" onClick={onRename}>
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-4 w-4 mr-1.5"
                 >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="h-4 w-4 mr-1.5"
-                  >
-                    <path d="M3 6h18" />
-                    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-                    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-                  </svg>
-                  Delete
-                </Button>
-              </div>
+                  <path d="M12 20h9" />
+                  <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                </svg>
+                Rename
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onDelete}
+                className="text-red-600 hover:bg-red-50"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-4 w-4 mr-1.5"
+                >
+                  <path d="M3 6h18" />
+                  <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+                  <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+                </svg>
+                Delete
+              </Button>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        </div>
+      </div>
     </>
   );
 };
 
-export default FilePreviewModal;
+export default FilePreviewTab;
