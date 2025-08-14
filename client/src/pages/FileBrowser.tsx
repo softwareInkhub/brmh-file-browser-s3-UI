@@ -331,7 +331,8 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
           id: tabId,
           label: config.label,
           icon: config.icon,
-          isActive: false
+          isActive: false,
+          type: 'navigation'
         };
         setTabs(prev => [...prev, newTab]);
       }
@@ -632,7 +633,10 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
     return currentState.sortDirection === "asc"
       ? aName.localeCompare(bName)
       : bName.localeCompare(aName);
-  });
+  }).map(folder => ({
+    ...folder,
+    path: folder.key
+  } as S3Folder));
 
   // Handle sort
   const handleSort = (column: string) => {
@@ -1099,9 +1103,6 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
                     onRename={() => {
                       openRenameModal(file.key, true);
                     }}
-                    onMove={() => {
-                      openMoveModal(file.key, true);
-                    }}
                     onDelete={() => {
                       openDeleteModal(file.key, true);
                     }}
@@ -1157,6 +1158,11 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
         isVisible={contextMenu.visible}
         onClose={closeContextMenu}
         item={contextMenu.item}
+        onPreview={() => {
+          if (contextMenu.item) {
+            openFileInTab(contextMenu.item);
+          }
+        }}
         onDownload={() => {
           if (contextMenu.item) {
             downloadFile(contextMenu.item.key, contextMenu.item.name);

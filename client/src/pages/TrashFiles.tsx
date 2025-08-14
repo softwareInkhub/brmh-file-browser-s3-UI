@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
 import AppHeader from "@/components/file-browser/AppHeader";
 import Sidebar from "@/components/file-browser/Sidebar";
-import ActionBar from "@/components/file-browser/ActionBar";
+
 import FileGrid from "@/components/file-browser/FileGrid";
 import FileList from "@/components/file-browser/FileList";
 import DeleteConfirmModal from "@/components/file-browser/DeleteConfirmModal";

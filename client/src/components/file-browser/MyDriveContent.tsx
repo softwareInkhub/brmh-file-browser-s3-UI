@@ -1,12 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useLocation } from "wouter";
-import { S3Object, S3Folder, TreeNode } from "../../types";
-import UnifiedNavBar from "./UnifiedNavBar";
+import { S3Object, S3Folder, TreeNode, ViewMode } from "../../types";
 import FileGrid from "./FileGrid";
 import FileList from "./FileList";
 import ColumnView from "./ColumnView";
-import ColumnViewPreview from "./ColumnViewPreview";
-import ColumnViewBreadcrumb from "./ColumnViewBreadcrumb";
 import { downloadFile } from "../../lib/s3Service";
 
 interface MyDriveContentProps {
@@ -37,12 +34,10 @@ const MyDriveContent: React.FC<MyDriveContentProps> = ({
   viewMode,
   sortBy,
   sortDirection,
-
   isLoading,
   hasContent,
   onViewModeChange,
   onSort,
-
   onFileClick,
   onFolderClick,
   onFileContextMenu,
@@ -94,22 +89,21 @@ const MyDriveContent: React.FC<MyDriveContentProps> = ({
 
   return (
     <div className="flex-1">
-      {viewMode === "column" ? (
+      {(viewMode as ViewMode) === "column" ? (
         <>
-          {/* Column View Home Bar with Breadcrumb */}
+          {/* Column View Home Bar */}
           <div className="flex items-center justify-between p-4 bg-white border-b border-gray-200/60">
-            {/* Left section - Breadcrumbs */}
-            <ColumnViewBreadcrumb
-              selectedPath={""}
-              onNavigate={handleColumnPathChange}
-            />
+            {/* Left section - Path display */}
+            <div className="text-sm text-gray-600">
+              {currentPath || "Home"}
+            </div>
             
             {/* Right section - View mode toggle */}
-            <div className="flex items-center gap-1 ml-4 flex-shrink-0">
+            <div className="flex items-center gap-1">
               <button
                 onClick={() => onViewModeChange('grid')}
                 className={`p-2 rounded-lg transition-colors ${
-                  viewMode === 'grid' 
+                  (viewMode as ViewMode) === 'grid' 
                     ? 'bg-blue-100 text-blue-600' 
                     : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
                 }`}
@@ -124,7 +118,7 @@ const MyDriveContent: React.FC<MyDriveContentProps> = ({
               <button
                 onClick={() => onViewModeChange('list')}
                 className={`p-2 rounded-lg transition-colors ${
-                  viewMode === 'list' 
+                  (viewMode as ViewMode) === 'list' 
                     ? 'bg-blue-100 text-blue-600' 
                     : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
                 }`}
@@ -141,7 +135,7 @@ const MyDriveContent: React.FC<MyDriveContentProps> = ({
               <button
                 onClick={() => onViewModeChange('column')}
                 className={`p-2 rounded-lg transition-colors ${
-                  viewMode === 'column' 
+                  (viewMode as ViewMode) === 'column' 
                     ? 'bg-blue-100 text-blue-600' 
                     : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
                 }`}
@@ -195,16 +189,58 @@ const MyDriveContent: React.FC<MyDriveContentProps> = ({
         </>
       ) : (
         <>
-          {/* Unified Navigation Bar */}
-          <UnifiedNavBar
-            viewMode={viewMode}
-            onViewModeChange={onViewModeChange}
-            sortBy={sortBy}
-            sortDirection={sortDirection}
-            onSort={onSort}
-            path={currentPath}
-            onNavigate={onNavigate}
-          />
+          {/* Navigation Bar */}
+          <div className="flex items-center justify-between p-4 bg-white border-b border-gray-200/60">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-600">{currentPath || "Home"}</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => onViewModeChange('grid')}
+                className={`p-2 rounded-lg transition-colors ${
+                  (viewMode as ViewMode) === 'grid' 
+                    ? 'bg-blue-100 text-blue-600' 
+                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                  <rect width="7" height="7" x="3" y="3" rx="1" />
+                  <rect width="7" height="7" x="14" y="3" rx="1" />
+                  <rect width="7" height="7" x="14" y="14" rx="1" />
+                  <rect width="7" height="7" x="3" y="14" rx="1" />
+                </svg>
+              </button>
+              <button
+                onClick={() => onViewModeChange('list')}
+                className={`p-2 rounded-lg transition-colors ${
+                  (viewMode as ViewMode) === 'list' 
+                    ? 'bg-blue-100 text-blue-600' 
+                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                  <line x1="8" x2="21" y1="6" y2="6" />
+                  <line x1="8" x2="21" y1="12" y2="12" />
+                  <line x1="8" x2="21" y1="18" y2="18" />
+                  <line x1="3" x2="3.01" y1="6" y2="6" />
+                  <line x1="3" x2="3.01" y1="12" y2="12" />
+                  <line x1="3" x2="3.01" y1="18" y2="18" />
+                </svg>
+              </button>
+              <button
+                onClick={() => onViewModeChange('column')}
+                className={`p-2 rounded-lg transition-colors ${
+                  (viewMode as ViewMode) === 'column' 
+                    ? 'bg-blue-100 text-blue-600' 
+                    : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                  <path d="M18 3a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3H6a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3h12a3 3 0 0 0 3-3 3 3 0 0 0-3-3z" />
+                </svg>
+              </button>
+            </div>
+          </div>
 
           {/* Content */}
           {isLoading ? (
@@ -283,7 +319,7 @@ const MyDriveContent: React.FC<MyDriveContentProps> = ({
                 </button>
               </div>
             </div>
-          ) : viewMode === "grid" ? (
+          ) : (viewMode as ViewMode) === "grid" ? (
             <FileGrid
               files={files}
               folders={folders}
@@ -293,21 +329,19 @@ const MyDriveContent: React.FC<MyDriveContentProps> = ({
               onFileContextMenu={onFileContextMenu}
               onFolderContextMenu={onFolderContextMenu}
               onDrop={onDrop}
-              currentPath={currentPath}
             />
           ) : (
             <FileList
               files={files}
               folders={folders}
+              sortBy={sortBy}
+              sortDirection={sortDirection}
+              onSort={onSort}
               onFileClick={onFileClick}
               onFolderClick={onFolderClick}
               onFileContextMenu={onFileContextMenu}
               onFolderContextMenu={onFolderContextMenu}
-              sortBy={sortBy}
-              sortDirection={sortDirection}
-              onSort={onSort}
               onDrop={onDrop}
-              currentPath={currentPath}
             />
           )}
         </>

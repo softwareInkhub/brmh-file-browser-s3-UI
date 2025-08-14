@@ -2,10 +2,10 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
 import AppHeader from "@/components/file-browser/AppHeader";
 import Sidebar from "@/components/file-browser/Sidebar";
-import ActionBar from "@/components/file-browser/ActionBar";
+
 import FileGrid from "@/components/file-browser/FileGrid";
 import FileList from "@/components/file-browser/FileList";
-import FilePreviewModal from "@/components/file-browser/FilePreviewModal";
+
 import RenameModal from "@/components/file-browser/RenameModal";
 import MoveModal from "@/components/file-browser/MoveModal";
 import DeleteConfirmModal from "@/components/file-browser/DeleteConfirmModal";
@@ -414,27 +414,6 @@ const StarredFiles: React.FC = () => {
       </div>
 
       {/* Modals */}
-      <FilePreviewModal
-        isOpen={isPreviewModalOpen}
-        onClose={() => setIsPreviewModalOpen(false)}
-        file={selectedItem}
-        previewUrl={previewUrl}
-        onDownload={handleDownload}
-        onStar={handleToggleStar}
-        onRename={() => {
-          setIsPreviewModalOpen(false);
-          setIsRenameModalOpen(true);
-        }}
-        onMove={() => {
-          setIsPreviewModalOpen(false);
-          setIsMoveModalOpen(true);
-        }}
-        onDelete={() => {
-          setIsPreviewModalOpen(false);
-          setIsDeleteModalOpen(true);
-        }}
-        isStarred={selectedItem ? starredItems.has(selectedItem.key) : false}
-      />
 
       <RenameModal
         isOpen={isRenameModalOpen}

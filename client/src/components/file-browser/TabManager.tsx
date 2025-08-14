@@ -32,7 +32,7 @@ const TabManager: React.FC<TabManagerProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
 
-  const getTabIcon = (tab: Tab) => {
+  const getTabIcon = (tab: Tab): React.ReactElement | React.ComponentType<{ className?: string }> => {
     if (tab.type === 'file-preview' && tab.fileKey) {
       const fileName = tab.fileKey.split("/").pop() || tab.fileKey;
       return getFileIcon(fileName);
@@ -163,7 +163,7 @@ const TabManager: React.FC<TabManagerProps> = ({
               {React.isValidElement(iconResult) ? (
                 React.cloneElement(iconResult, {
                   className: 'tab-icon'
-                })
+                } as any)
               ) : (
                 React.createElement(iconResult as React.ComponentType<{ className?: string }>, {
                   className: 'tab-icon'
