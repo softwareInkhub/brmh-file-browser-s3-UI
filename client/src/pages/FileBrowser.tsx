@@ -1216,9 +1216,6 @@ const FileBrowser: React.FC<FileBrowserProps> = () => {
                   onFolderClick={handleFolderClick}
                   onFileContextMenu={handleContextMenu}
                   onFolderContextMenu={handleContextMenu}
-                  onFolderRename={(folder) => openRenameModal(folder.key, true)}
-                  onFolderDelete={(folder) => openDeleteModal(folder.key, true)}
-                  onFolderMove={(folder) => openMoveModal(folder.key, true)}
                   onNavigate={handleNavigate}
                   onDrop={handleFileDrop}
                   onUploadClick={openUploadModal}

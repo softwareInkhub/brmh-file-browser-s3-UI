@@ -22,10 +22,6 @@ interface MyDriveContentProps {
   onFolderClick: (folder: S3Object) => void;
   onFileContextMenu: (item: S3Object, e: React.MouseEvent) => void;
   onFolderContextMenu: (item: S3Object, e: React.MouseEvent) => void;
-  onFolderRename?: (folder: S3Object) => void;
-  onFolderDelete?: (folder: S3Object) => void;
-  onFolderMove?: (folder: S3Object) => void;
-  onFolderDownload?: (folder: S3Object) => void;
   onNavigate: (path: string) => void;
   onDrop: (sourceKeys: string[], destinationPath: string) => void;
   onUploadClick: () => void;
@@ -47,10 +43,6 @@ const MyDriveContent: React.FC<MyDriveContentProps> = ({
   onFolderClick,
   onFileContextMenu,
   onFolderContextMenu,
-  onFolderRename,
-  onFolderDelete,
-  onFolderMove,
-  onFolderDownload,
   onNavigate,
   onDrop,
   onUploadClick,
@@ -220,10 +212,6 @@ const MyDriveContent: React.FC<MyDriveContentProps> = ({
             <ColumnView
               onFileClick={handleColumnFileClick}
               onFolderClick={handleColumnFolderClick}
-              onFolderRename={onFolderRename}
-              onFolderDelete={onFolderDelete}
-              onFolderMove={onFolderMove}
-              onFolderDownload={onFolderDownload}
               currentPath={currentPath}
               selectedPath={""}
               onPathChange={handleColumnPathChange}
@@ -356,10 +344,6 @@ const MyDriveContent: React.FC<MyDriveContentProps> = ({
                   onFolderClick={onFolderClick}
                   onFileContextMenu={onFileContextMenu}
                   onFolderContextMenu={onFolderContextMenu}
-                  onFolderRename={onFolderRename}
-                  onFolderDelete={onFolderDelete}
-                  onFolderMove={onFolderMove}
-                  onFolderDownload={onFolderDownload}
                   onDrop={onDrop}
                 />
               )}
@@ -374,10 +358,6 @@ const MyDriveContent: React.FC<MyDriveContentProps> = ({
                   onFolderClick={onFolderClick}
                   onFileContextMenu={onFileContextMenu}
                   onFolderContextMenu={onFolderContextMenu}
-                  onFolderRename={onFolderRename}
-                  onFolderDelete={onFolderDelete}
-                  onFolderMove={onFolderMove}
-                  onFolderDownload={onFolderDownload}
                   onSort={onSort}
                   onDrop={onDrop}
                 />
