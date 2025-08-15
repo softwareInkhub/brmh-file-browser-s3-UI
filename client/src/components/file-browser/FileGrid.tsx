@@ -2,6 +2,7 @@ import React, { useRef, useState } from "react";
 import { S3Object } from "../../types";
 import { truncateFolderName } from "../../lib/utils";
 import { Grid3X3, List, MoreVertical, Star, Download, Share2, Trash2, Edit3, FolderOpen } from "lucide-react";
+import ItemMenu from "./ItemMenu";
 
 interface FileGridProps {
   files: S3Object[];
@@ -13,6 +14,10 @@ interface FileGridProps {
   onFolderContextMenu: (item: S3Object, e: React.MouseEvent) => void;
   onDrop?: (sourceKeys: string[], destinationPath: string) => void;
   currentPath?: string;
+  onItemRename?: (item: S3Object) => void;
+  onItemDelete?: (item: S3Object) => void;
+  onItemMove?: (item: S3Object) => void;
+  onItemDownload?: (item: S3Object) => void;
 }
 
 type ViewMode = 'grid' | 'list' | 'column';
@@ -27,6 +32,10 @@ const FileGrid: React.FC<FileGridProps> = ({
   onFolderContextMenu,
   onDrop,
   currentPath,
+  onItemRename,
+  onItemDelete,
+  onItemMove,
+  onItemDownload,
 }) => {
   const gridRef = useRef<HTMLDivElement>(null);
   const [draggedItem, setDraggedItem] = useState<S3Object | null>(null);
@@ -203,6 +212,14 @@ const FileGrid: React.FC<FileGridProps> = ({
     setDraggedItem(null);
   };
 
+  // Helper function to check if click originated from menu
+  const isMenuClick = (e: React.MouseEvent): boolean => {
+    const target = e.target as HTMLElement;
+    return target.closest('[data-menu-trigger]') !== null || 
+           target.closest('[role="menu"]') !== null ||
+           target.closest('[role="menuitem"]') !== null;
+  };
+
   const renderGridItem = (item: S3Object, isFolder: boolean = false) => (
     <div
       key={item.key}
@@ -216,7 +233,11 @@ const FileGrid: React.FC<FileGridProps> = ({
         ${dragOverFolder === item.key ? 'border-blue-400 bg-blue-50' : ''}
         ${viewMode === 'grid' ? 'hover:-translate-y-1' : ''}
       `}
-      onClick={() => isFolder ? onFolderClick(item) : onFileClick(item)}
+      onClick={(e) => {
+        if (!isMenuClick(e)) {
+          isFolder ? onFolderClick(item) : onFileClick(item);
+        }
+      }}
       onContextMenu={(e) => isFolder ? onFolderContextMenu(item, e) : onFileContextMenu(item, e)}
     >
       <div className="flex flex-col items-center text-center space-y-3">
@@ -238,11 +259,15 @@ const FileGrid: React.FC<FileGridProps> = ({
         </div>
       </div>
       
-      {/* Hover actions */}
+      {/* Three-dot menu */}
       <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-        <button className="p-1.5 bg-white/80 backdrop-blur-sm rounded-lg shadow-sm hover:bg-white border border-gray-200">
-          <MoreVertical className="w-4 h-4 text-gray-600" />
-        </button>
+        <ItemMenu
+          item={item}
+          onRename={onItemRename}
+          onDelete={onItemDelete}
+          onMove={onItemMove}
+          onDownload={onItemDownload}
+        />
       </div>
     </div>
   );
@@ -259,7 +284,11 @@ const FileGrid: React.FC<FileGridProps> = ({
         group flex items-center space-x-4 p-3 bg-white border border-gray-200 rounded-lg hover:border-gray-300 hover:bg-gray-50 transition-all duration-200 cursor-pointer
         ${dragOverFolder === item.key ? 'border-blue-400 bg-blue-50' : ''}
       `}
-      onClick={() => isFolder ? onFolderClick(item) : onFileClick(item)}
+      onClick={(e) => {
+        if (!isMenuClick(e)) {
+          isFolder ? onFolderClick(item) : onFileClick(item);
+        }
+      }}
       onContextMenu={(e) => isFolder ? onFolderContextMenu(item, e) : onFileContextMenu(item, e)}
     >
       {isFolder ? getFolderIcon() : getFileIcon(item)}
@@ -279,17 +308,15 @@ const FileGrid: React.FC<FileGridProps> = ({
         )}
       </div>
       
-      {/* Hover actions */}
-      <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex items-center space-x-1">
-        <button className="p-1.5 hover:bg-gray-200 rounded">
-          <Star className="w-4 h-4 text-gray-600" />
-        </button>
-        <button className="p-1.5 hover:bg-gray-200 rounded">
-          <Share2 className="w-4 h-4 text-gray-600" />
-        </button>
-        <button className="p-1.5 hover:bg-gray-200 rounded">
-          <MoreVertical className="w-4 h-4 text-gray-600" />
-        </button>
+      {/* Three-dot menu */}
+      <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+        <ItemMenu
+          item={item}
+          onRename={onItemRename}
+          onDelete={onItemDelete}
+          onMove={onItemMove}
+          onDownload={onItemDownload}
+        />
       </div>
     </div>
   );

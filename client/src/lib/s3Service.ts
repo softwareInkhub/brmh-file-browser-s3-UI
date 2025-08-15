@@ -297,13 +297,23 @@ export function getDownloadUrl(keys: string[], zip: boolean = false): string {
 
 // Download file
 export function downloadFile(key: string, filename?: string): void {
-  const downloadUrl = getDownloadUrl([key]);
-  const link = document.createElement("a");
-  link.href = downloadUrl;
-  link.download = filename || key.split("/").pop() || "download";
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+  try {
+    const downloadUrl = getDownloadUrl([key]);
+    console.log('Download URL:', downloadUrl);
+    
+    const link = document.createElement("a");
+    link.href = downloadUrl;
+    link.download = filename || key.split("/").pop() || "download";
+    link.target = "_blank"; // Open in new tab if download fails
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } catch (error) {
+    console.error('Download error:', error);
+    // Fallback: open in new tab
+    const downloadUrl = getDownloadUrl([key]);
+    window.open(downloadUrl, '_blank');
+  }
 }
 
 // Download multiple files as zip
@@ -322,6 +332,28 @@ export function downloadFiles(keys: string[]): void {
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+}
+
+// Download folder as zip
+export function downloadFolder(folderKey: string): void {
+  try {
+    const downloadUrl = getDownloadUrl([folderKey], true);
+    console.log('Folder download URL:', downloadUrl);
+    
+    const link = document.createElement("a");
+    link.href = downloadUrl;
+    const folderName = folderKey.split("/").filter(Boolean).pop() || "folder";
+    link.download = `${folderName}.zip`;
+    link.target = "_blank"; // Open in new tab if download fails
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } catch (error) {
+    console.error('Folder download error:', error);
+    // Fallback: open in new tab
+    const downloadUrl = getDownloadUrl([folderKey], true);
+    window.open(downloadUrl, '_blank');
+  }
 }
 
 /**

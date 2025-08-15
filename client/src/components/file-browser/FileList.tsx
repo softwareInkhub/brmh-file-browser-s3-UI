@@ -2,6 +2,7 @@ import React, { useState, useRef } from "react";
 import { S3Object } from "../../types";
 import { truncateFolderName } from "../../lib/utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import ItemMenu from "./ItemMenu";
 
 interface FileListProps {
   files: S3Object[];
@@ -15,6 +16,10 @@ interface FileListProps {
   onSort: (column: string) => void;
   onDrop?: (sourceKeys: string[], destinationPath: string) => void;
   currentPath?: string;
+  onItemRename?: (item: S3Object) => void;
+  onItemDelete?: (item: S3Object) => void;
+  onItemMove?: (item: S3Object) => void;
+  onItemDownload?: (item: S3Object) => void;
 }
 
 const FileList: React.FC<FileListProps> = ({
@@ -29,6 +34,10 @@ const FileList: React.FC<FileListProps> = ({
   onSort,
   onDrop,
   currentPath,
+  onItemRename,
+  onItemDelete,
+  onItemMove,
+  onItemDownload,
 }) => {
   // Drag and drop state
   const [draggedItem, setDraggedItem] = useState<S3Object | null>(null);
@@ -128,6 +137,14 @@ const FileList: React.FC<FileListProps> = ({
     setDraggedItem(null);
   };
   
+  // Helper function to check if click originated from menu
+  const isMenuClick = (e: React.MouseEvent): boolean => {
+    const target = e.target as HTMLElement;
+    return target.closest('[data-menu-trigger]') !== null || 
+           target.closest('[role="menu"]') !== null ||
+           target.closest('[role="menuitem"]') !== null;
+  };
+
   // Helper to get sort icon
   const getSortIcon = (column: string) => {
     if (sortBy !== column) {
@@ -228,7 +245,11 @@ const FileList: React.FC<FileListProps> = ({
           {folders.map((folder) => (
             <TableRow
               key={folder.key}
-              onClick={() => onFolderClick(folder)}
+              onClick={(e) => {
+                if (!isMenuClick(e)) {
+                  onFolderClick(folder);
+                }
+              }}
               onContextMenu={(e) => onFolderContextMenu(folder, e)}
               className={`cursor-pointer hover:bg-gray-50 ${dragOverFolder === folder.key ? 'bg-blue-50 ring-2 ring-blue-300' : ''}`}
               draggable={folder.key !== '_trash/' && folder.key !== '_starred/'}
@@ -262,28 +283,40 @@ const FileList: React.FC<FileListProps> = ({
               <TableCell>-</TableCell>
               <TableCell>{formatDate(folder.lastModified)}</TableCell>
               <TableCell className="text-right">
-                <button 
-                  className="text-gray-400 hover:text-gray-600"
-                  onClick={(e) => {
-                    e.stopPropagation(); // Prevent folder click
-                    onFolderContextMenu(folder, e);
-                  }}
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="h-5 w-5"
+                {onItemRename && onItemDelete ? (
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <ItemMenu
+                      item={folder}
+                      onRename={onItemRename}
+                      onDelete={onItemDelete}
+                      onMove={onItemMove}
+                      onDownload={onItemDownload}
+                    />
+                  </div>
+                ) : (
+                  <button 
+                    className="text-gray-400 hover:text-gray-600"
+                    onClick={(e) => {
+                      e.stopPropagation(); // Prevent folder click
+                      onFolderContextMenu(folder, e);
+                    }}
                   >
-                    <circle cx="12" cy="12" r="1" />
-                    <circle cx="19" cy="12" r="1" />
-                    <circle cx="5" cy="12" r="1" />
-                  </svg>
-                </button>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="h-5 w-5"
+                    >
+                      <circle cx="12" cy="12" r="1" />
+                      <circle cx="19" cy="12" r="1" />
+                      <circle cx="5" cy="12" r="1" />
+                    </svg>
+                  </button>
+                )}
               </TableCell>
             </TableRow>
           ))}
@@ -292,7 +325,11 @@ const FileList: React.FC<FileListProps> = ({
           {files.map((file) => (
             <TableRow
               key={file.key}
-              onClick={() => onFileClick(file)}
+              onClick={(e) => {
+                if (!isMenuClick(e)) {
+                  onFileClick(file);
+                }
+              }}
               onContextMenu={(e) => onFileContextMenu(file, e)}
               className="cursor-pointer hover:bg-gray-50"
               draggable
@@ -324,28 +361,40 @@ const FileList: React.FC<FileListProps> = ({
               <TableCell>{formatSize(file.size)}</TableCell>
               <TableCell>{formatDate(file.lastModified)}</TableCell>
               <TableCell className="text-right">
-                <button 
-                  className="text-gray-400 hover:text-gray-600"
-                  onClick={(e) => {
-                    e.stopPropagation(); // Prevent file click
-                    onFileContextMenu(file, e);
-                  }}
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="h-5 w-5"
+                {onItemRename && onItemDelete ? (
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <ItemMenu
+                      item={file}
+                      onRename={onItemRename}
+                      onDelete={onItemDelete}
+                      onMove={onItemMove}
+                      onDownload={onItemDownload}
+                    />
+                  </div>
+                ) : (
+                  <button 
+                    className="text-gray-400 hover:text-gray-600"
+                    onClick={(e) => {
+                      e.stopPropagation(); // Prevent file click
+                      onFileContextMenu(file, e);
+                    }}
                   >
-                    <circle cx="12" cy="12" r="1" />
-                    <circle cx="19" cy="12" r="1" />
-                    <circle cx="5" cy="12" r="1" />
-                  </svg>
-                </button>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="h-5 w-5"
+                    >
+                      <circle cx="12" cy="12" r="1" />
+                      <circle cx="19" cy="12" r="1" />
+                      <circle cx="5" cy="12" r="1" />
+                    </svg>
+                  </button>
+                )}
               </TableCell>
             </TableRow>
           ))}

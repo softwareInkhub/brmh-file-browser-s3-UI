@@ -32,6 +32,7 @@ import {
   toggleStar, 
   downloadFile, 
   downloadFiles,
+  downloadFolder,
   dropFiles
 } from "@/lib/s3Service";
 import { S3Object, Position, ViewMode, UploadStatus, S3Folder } from "../types";
@@ -431,7 +432,6 @@ const FileBrowser: React.FC<FileBrowserProps> = () => {
       console.log("Fetching files for path:", currentState.currentPath);
       setIsLoading(true);
       const result = await listFiles(currentState.currentPath);
-      console.log("Files API response:", result);
       setFiles(result.files);
       setFolders(result.folders);
       
@@ -969,6 +969,87 @@ const FileBrowser: React.FC<FileBrowserProps> = () => {
     }
   };
 
+  // Shared menu action handler
+  const handleMenuAction = async (item: S3Object, action: 'rename' | 'move' | 'download' | 'delete') => {
+    try {
+      // Validate that item has a valid key
+      if (!item || !item.key || item.key === 'undefined' || item.key === 'undefined/') {
+        console.log('Invalid item for menu action:', item);
+        toast({
+          title: "Error",
+          description: "Invalid item selected for operation",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Additional validation for folder operations
+      if (action === 'rename' || action === 'move' || action === 'delete') {
+        const isFolder = item.isFolder || item.type === 'folder' || item.key.endsWith('/');
+        if (isFolder && (!item.key || item.key === 'undefined' || item.key === 'undefined/')) {
+          console.log('Invalid folder item:', item);
+          toast({
+            title: "Error",
+            description: "Invalid folder selected for operation",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
+      // Ensure the item has all required properties
+      const validItem = {
+        key: item.key,
+        name: item.name || item.key.split("/").pop() || item.key,
+        type: item.type || (item.isFolder ? 'folder' : 'file'),
+        size: item.size || 0,
+        lastModified: item.lastModified || new Date(),
+        etag: item.etag || '',
+        isFolder: item.isFolder || item.type === 'folder'
+      };
+
+
+
+      switch (action) {
+        case 'rename':
+          openRenameModal(validItem.key, false);
+          break;
+        case 'move':
+          openMoveModal(validItem.key, false);
+          break;
+        case 'download':
+          try {
+            if (validItem.isFolder || validItem.type === 'folder') {
+              // For folders, download as zip
+              console.log('Downloading folder:', validItem.key);
+              downloadFolder(validItem.key);
+            } else {
+              // For files, use the existing download function
+              console.log('Downloading file:', validItem.key);
+              downloadFile(validItem.key, validItem.name || validItem.key.split("/").pop() || "download");
+            }
+          } catch (error) {
+            console.error('Download action error:', error);
+            toast({
+              title: "Download Error",
+              description: "Failed to download item. Please try again.",
+              variant: "destructive",
+            });
+          }
+          break;
+        case 'delete':
+          openDeleteModal(validItem.key, false);
+          break;
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: `Failed to ${action} item: ${(error as Error).message}`,
+        variant: "destructive",
+      });
+    }
+  };
+
   // Star/unstar file
   const handleToggleStar = async () => {
     // Get the item from context menu, selected item, or active file tab
@@ -1190,15 +1271,6 @@ const FileBrowser: React.FC<FileBrowserProps> = () => {
             
             {/* Tab Content */}
             <div className="flex-1">
-              {(() => {
-                console.log('🎯 Rendering tab content for:', currentState.activeTabId);
-                console.log('📋 Current state:', {
-                  activeTabId: currentState.activeTabId,
-                  openTabs: currentState.openTabs,
-                  tabsLength: tabs.length
-                });
-                return null;
-              })()}
               
               {currentState.activeTabId === "my-drive" && (
                 <MyDriveContent
@@ -1220,6 +1292,10 @@ const FileBrowser: React.FC<FileBrowserProps> = () => {
                   onDrop={handleFileDrop}
                   onUploadClick={openUploadModal}
                   onNewFolderClick={openNewFolderModal}
+                  onItemRename={(item) => handleMenuAction(item, 'rename')}
+                  onItemDelete={(item) => handleMenuAction(item, 'delete')}
+                  onItemMove={(item) => handleMenuAction(item, 'move')}
+                  onItemDownload={(item) => handleMenuAction(item, 'download')}
                 />
               )}
               
@@ -1303,6 +1379,19 @@ const FileBrowser: React.FC<FileBrowserProps> = () => {
             // Try to find the item from the selected item key
             const allItems = [...files, ...folders];
             item = allItems.find(item => item.key === currentState.selectedItemKey);
+            
+            // If still not found, create a minimal item object with the key
+            if (!item && currentState.selectedItemKey) {
+              item = {
+                key: currentState.selectedItemKey,
+                name: currentState.selectedItemKey.split("/").pop() || currentState.selectedItemKey,
+                type: 'Unknown',
+                size: 0,
+                lastModified: new Date(),
+                etag: '',
+                isFolder: currentState.selectedItemKey.endsWith('/')
+              };
+            }
           }
           
           if (!item && currentState.activeTabId?.startsWith('file-')) {

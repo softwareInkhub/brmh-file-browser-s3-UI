@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { ChevronRight, ChevronDown, Folder, FolderOpen } from "lucide-react";
-import { TreeNode } from "../../types";
+import { TreeNode, S3Object } from "../../types";
 import { listFiles } from "../../lib/s3Service";
 import { getFileIcon } from "../../lib/mimeTypes";
+import ItemMenu from "./ItemMenu";
 
 interface ColumnViewProps {
   onFileClick: (file: TreeNode) => void;
@@ -10,6 +11,10 @@ interface ColumnViewProps {
   currentPath: string;
   selectedPath?: string;
   onPathChange?: (path: string) => void;
+  onItemRename?: (item: S3Object) => void;
+  onItemDelete?: (item: S3Object) => void;
+  onItemMove?: (item: S3Object) => void;
+  onItemDownload?: (item: S3Object) => void;
 }
 
 const ColumnView: React.FC<ColumnViewProps> = ({
@@ -18,6 +23,10 @@ const ColumnView: React.FC<ColumnViewProps> = ({
   currentPath,
   selectedPath = "",
   onPathChange,
+  onItemRename,
+  onItemDelete,
+  onItemMove,
+  onItemDownload,
 }) => {
   const [treeData, setTreeData] = useState<TreeNode[]>([]);
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
@@ -167,7 +176,19 @@ const ColumnView: React.FC<ColumnViewProps> = ({
     }
   }, [expandedNodes, fetchTreeData]);
 
-  const handleNodeClick = useCallback((node: TreeNode) => {
+  // Helper function to check if click originated from menu
+  const isMenuClick = (e: React.MouseEvent): boolean => {
+    const target = e.target as HTMLElement;
+    return target.closest('[data-menu-trigger]') !== null || 
+           target.closest('[role="menu"]') !== null ||
+           target.closest('[role="menuitem"]') !== null;
+  };
+
+  const handleNodeClick = useCallback((node: TreeNode, e?: React.MouseEvent) => {
+    if (e && isMenuClick(e)) {
+      return; // Don't navigate if click originated from menu
+    }
+    
     if (node.type === 'folder') {
       toggleNode(node);
       onFolderClick?.(node);
@@ -175,7 +196,7 @@ const ColumnView: React.FC<ColumnViewProps> = ({
       setSelectedFile(node);
       onFileClick(node);
     }
-  }, [toggleNode, onFolderClick, onFileClick]);
+  }, [toggleNode, onFolderClick, onFileClick, isMenuClick]);
 
   const renderNode = useCallback((node: TreeNode, level: number = 0) => {
     const isExpanded = expandedNodes.has(node.key);
@@ -188,14 +209,14 @@ const ColumnView: React.FC<ColumnViewProps> = ({
       <div key={node.key} className="select-none">
         <div
           className={`
-            flex items-center px-3 py-2 text-sm cursor-pointer rounded-md transition-colors
+            group flex items-center px-3 py-2 text-sm cursor-pointer rounded-md transition-colors
             ${isSelected 
               ? 'bg-blue-50 text-blue-700 border border-blue-200' 
               : 'hover:bg-gray-50 text-gray-700'
             }
           `}
           style={{ paddingLeft: `${level * 20 + 12}px` }}
-          onClick={() => handleNodeClick(node)}
+          onClick={(e) => handleNodeClick(node, e)}
         >
           {/* Expand/Collapse Icon */}
           {node.type === 'folder' && (
@@ -229,6 +250,28 @@ const ColumnView: React.FC<ColumnViewProps> = ({
           
           {/* Name */}
           <span className="truncate flex-1">{node.name}</span>
+          
+          {/* Three-dot menu */}
+          {onItemRename && onItemDelete && (
+            <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 ml-2">
+              <ItemMenu
+                item={{
+                  key: node.key || node.name || '',
+                  name: node.name || node.key || '',
+                  type: node.type === 'folder' ? 'folder' : 'file',
+                  size: node.size || 0,
+                  lastModified: node.lastModified || new Date(),
+                  etag: node.etag || '',
+                  isFolder: node.type === 'folder'
+                }}
+                onRename={onItemRename}
+                onDelete={onItemDelete}
+                onMove={onItemMove}
+                onDownload={onItemDownload}
+                align="left"
+              />
+            </div>
+          )}
         </div>
         
         {/* Children */}
@@ -244,7 +287,14 @@ const ColumnView: React.FC<ColumnViewProps> = ({
   return (
     <div className="w-80 bg-white border-r border-gray-200 overflow-y-auto">
       <div className="p-2">
-        {treeData.map(node => renderNode(node))}
+        {treeData.length === 0 ? (
+          <div className="text-center py-8">
+            <div className="text-gray-400 mb-2">No data available</div>
+            <div className="text-sm text-gray-500">Loading...</div>
+          </div>
+        ) : (
+          treeData.map(node => renderNode(node))
+        )}
       </div>
     </div>
   );

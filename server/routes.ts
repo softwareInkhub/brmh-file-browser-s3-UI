@@ -449,13 +449,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Process folders (CommonPrefixes)
       const folders = (response.CommonPrefixes || []).map(prefix => {
         const key = prefix.Prefix || '';
+        console.log('Processing folder prefix:', prefix, 'key:', key);
         return {
           key,
           name: key.split('/').filter(Boolean).pop() || key,
           isFolder: true,
           type: 'Folder',
           lastModified: null,
-          size: 0
+          size: 0,
+          etag: '' // Add etag property for folders
         };
       });
 
@@ -526,7 +528,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // 3. Delete file
+  // 3. Delete file or folder
   app.delete('/api/files', async (req, res) => {
     try {
       const key = req.query.key as string;
@@ -535,17 +537,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'File key is required' });
       }
 
-      const command = new DeleteObjectCommand({
-        Bucket: bucketName,
-        Key: key
-      });
-
-      await s3Client.send(command);
+      // Check if this is a folder (ends with /)
+      const isFolder = key.endsWith('/');
       
-      res.json({ message: 'File deleted successfully' });
+      if (isFolder) {
+        // Handle folder deletion
+        const listCommand = new ListObjectsV2Command({
+          Bucket: bucketName,
+          Prefix: key,
+          Delimiter: '/'
+        });
+        
+        const listResponse = await s3Client.send(listCommand);
+        
+        // Delete all files in the folder
+        if (listResponse.Contents) {
+          for (const file of listResponse.Contents) {
+            if (file.Key && file.Key !== key && !file.Key.endsWith('/')) {
+              const deleteCommand = new DeleteObjectCommand({
+                Bucket: bucketName,
+                Key: file.Key
+              });
+              
+              await s3Client.send(deleteCommand);
+            }
+          }
+        }
+        
+        res.json({ message: 'Folder deleted successfully' });
+      } else {
+        // Handle file deletion
+        const command = new DeleteObjectCommand({
+          Bucket: bucketName,
+          Key: key
+        });
+
+        await s3Client.send(command);
+        
+        res.json({ message: 'File deleted successfully' });
+      }
     } catch (error) {
-      console.error('Error deleting file:', error);
-      res.status(500).json({ error: 'Failed to delete file', details: (error as Error).message });
+      console.error('Error deleting file/folder:', error);
+      res.status(500).json({ error: 'Failed to delete file/folder', details: (error as Error).message });
     }
   });
 
@@ -865,15 +898,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Pipe the archive to the response
       archive.pipe(res);
       
-      // Add files to the archive
+      // Collect all files to add to the archive
+      const allFiles: { key: string; filename: string }[] = [];
+      
       for (const key of keys) {
+        // Check if this is a folder (ends with /)
+        if (key.endsWith('/')) {
+          // List all files in the folder
+          const listCommand = new ListObjectsV2Command({
+            Bucket: bucketName,
+            Prefix: key,
+            Delimiter: '/'
+          });
+          
+          const listResponse = await s3Client.send(listCommand);
+          
+          // Add all files in the folder
+          if (listResponse.Contents) {
+            for (const file of listResponse.Contents) {
+              if (file.Key && file.Key !== key && !file.Key.endsWith('/')) {
+                const relativePath = file.Key.substring(key.length);
+                allFiles.push({
+                  key: file.Key,
+                  filename: relativePath
+                });
+              }
+            }
+          }
+        } else {
+          // Single file
+          allFiles.push({
+            key: key,
+            filename: key.split('/').pop() || key
+          });
+        }
+      }
+      
+      // Add all collected files to the archive
+      for (const file of allFiles) {
         const command = new GetObjectCommand({
           Bucket: bucketName,
-          Key: key
+          Key: file.key
         });
         
         const response = await s3Client.send(command);
-        const filename = key.split('/').pop() || key;
         
         if (response.Body) {
           const streamToBuffer = async (stream: any): Promise<Buffer> => {
@@ -886,7 +954,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           };
           
           const buffer = await streamToBuffer(response.Body);
-          archive.append(buffer, { name: filename });
+          archive.append(buffer, { name: file.filename });
         }
       }
       
@@ -905,7 +973,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // 6. Rename file
+  // 6. Rename file or folder
   app.post('/api/files/rename', async (req, res) => {
     try {
       const { oldKey, newName } = req.body;
@@ -914,38 +982,94 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: 'Old key and new name are required' });
       }
 
-      // Get path without filename
-      const pathParts = oldKey.split('/');
-      pathParts.pop(); // Remove filename
-      const newKey = pathParts.length > 0 
-        ? `${pathParts.join('/')}/${newName}` 
-        : newName;
+      // Check if this is a folder (ends with /)
+      const isFolder = oldKey.endsWith('/');
       
-      // Copy the object to the new key
-      const copyCommand = new CopyObjectCommand({
-        Bucket: bucketName,
-        CopySource: encodeURIComponent(`${bucketName}/${oldKey}`),
-        Key: newKey
-      });
-      
-      await s3Client.send(copyCommand);
-      
-      // Delete the old object
-      const deleteCommand = new DeleteObjectCommand({
-        Bucket: bucketName,
-        Key: oldKey
-      });
-      
-      await s3Client.send(deleteCommand);
-      
-      res.json({
-        message: 'File renamed successfully',
-        oldKey,
-        newKey
-      });
+      if (isFolder) {
+        // Handle folder rename
+        const oldFolderPath = oldKey;
+        const pathParts = oldKey.split('/');
+        pathParts.pop(); // Remove trailing slash
+        pathParts.pop(); // Remove folder name
+        const newFolderPath = pathParts.length > 0 
+          ? `${pathParts.join('/')}/${newName}/` 
+          : `${newName}/`;
+        
+        // List all files in the folder
+        const listCommand = new ListObjectsV2Command({
+          Bucket: bucketName,
+          Prefix: oldFolderPath,
+          Delimiter: '/'
+        });
+        
+        const listResponse = await s3Client.send(listCommand);
+        
+        // Rename all files in the folder
+        if (listResponse.Contents) {
+          for (const file of listResponse.Contents) {
+            if (file.Key && file.Key !== oldFolderPath && !file.Key.endsWith('/')) {
+              const relativePath = file.Key.substring(oldFolderPath.length);
+              const newFileKey = `${newFolderPath}${relativePath}`;
+              
+              // Copy file to new location
+              const copyCommand = new CopyObjectCommand({
+                Bucket: bucketName,
+                CopySource: encodeURIComponent(`${bucketName}/${file.Key}`),
+                Key: newFileKey
+              });
+              
+              await s3Client.send(copyCommand);
+              
+              // Delete old file
+              const deleteCommand = new DeleteObjectCommand({
+                Bucket: bucketName,
+                Key: file.Key
+              });
+              
+              await s3Client.send(deleteCommand);
+            }
+          }
+        }
+        
+        res.json({
+          message: 'Folder renamed successfully',
+          oldKey: oldFolderPath,
+          newKey: newFolderPath
+        });
+      } else {
+        // Handle file rename
+        const pathParts = oldKey.split('/');
+        pathParts.pop(); // Remove filename
+        const newKey = pathParts.length > 0 
+          ? `${pathParts.join('/')}/${newName}` 
+          : newName;
+        
+        // Copy the object to the new key
+        const copyCommand = new CopyObjectCommand({
+          Bucket: bucketName,
+          CopySource: encodeURIComponent(`${bucketName}/${oldKey}`),
+          Key: newKey
+        });
+        
+        await s3Client.send(copyCommand);
+        
+        // Delete the old object
+        const deleteCommand = new DeleteObjectCommand({
+          Bucket: bucketName,
+          Key: oldKey
+        });
+        
+        await s3Client.send(deleteCommand);
+        
+        res.json({
+          message: 'File renamed successfully',
+          oldKey,
+          newKey
+        });
+      }
     } catch (error) {
-      console.error('Error renaming file:', error);
-      res.status(500).json({ error: 'Failed to rename file', details: (error as Error).message });
+      console.error('Error renaming file/folder:', error);
+      res.status(500).json({ error: 'Failed to rename file/folder', details: (error as Error).message });
     }
   });
 
@@ -1205,7 +1329,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // 13. Move file
+  // 13. Move file or folder
   app.post('/api/files/move', async (req, res) => {
     try {
       const { sourceKey, destinationPath } = req.body;
@@ -1222,35 +1346,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Get filename
-      const filename = sourceKey.split('/').pop() || '';
-      const newKey = destinationPath ? `${destinationPath}${destinationPath.endsWith('/') ? '' : '/'}${filename}` : filename;
+      // Check if this is a folder (ends with /)
+      const isFolder = sourceKey.endsWith('/');
       
-      // Copy the object to new location
-      const copyCommand = new CopyObjectCommand({
-        Bucket: bucketName,
-        CopySource: encodeURIComponent(`${bucketName}/${sourceKey}`),
-        Key: newKey
-      });
-      
-      await s3Client.send(copyCommand);
-      
-      // Delete the original object
-      const deleteCommand = new DeleteObjectCommand({
-        Bucket: bucketName,
-        Key: sourceKey
-      });
-      
-      await s3Client.send(deleteCommand);
-      
-      res.json({
-        message: 'File moved successfully',
-        sourceKey,
-        destinationKey: newKey
-      });
+      if (isFolder) {
+        // Handle folder move
+        const folderName = sourceKey.split('/').filter(Boolean).pop() || '';
+        const newFolderPath = destinationPath ? `${destinationPath}${destinationPath.endsWith('/') ? '' : '/'}${folderName}/` : `${folderName}/`;
+        
+        // List all files in the folder
+        const listCommand = new ListObjectsV2Command({
+          Bucket: bucketName,
+          Prefix: sourceKey,
+          Delimiter: '/'
+        });
+        
+        const listResponse = await s3Client.send(listCommand);
+        
+        // Move all files in the folder
+        if (listResponse.Contents) {
+          for (const file of listResponse.Contents) {
+            if (file.Key && file.Key !== sourceKey && !file.Key.endsWith('/')) {
+              const relativePath = file.Key.substring(sourceKey.length);
+              const newFileKey = `${newFolderPath}${relativePath}`;
+              
+              // Copy file to new location
+              const copyCommand = new CopyObjectCommand({
+                Bucket: bucketName,
+                CopySource: encodeURIComponent(`${bucketName}/${file.Key}`),
+                Key: newFileKey
+              });
+              
+              await s3Client.send(copyCommand);
+              
+              // Delete old file
+              const deleteCommand = new DeleteObjectCommand({
+                Bucket: bucketName,
+                Key: file.Key
+              });
+              
+              await s3Client.send(deleteCommand);
+            }
+          }
+        }
+        
+        res.json({
+          message: 'Folder moved successfully',
+          sourceKey,
+          destinationKey: newFolderPath
+        });
+      } else {
+        // Handle file move
+        const filename = sourceKey.split('/').pop() || '';
+        const newKey = destinationPath ? `${destinationPath}${destinationPath.endsWith('/') ? '' : '/'}${filename}` : filename;
+        
+        // Copy the object to new location
+        const copyCommand = new CopyObjectCommand({
+          Bucket: bucketName,
+          CopySource: encodeURIComponent(`${bucketName}/${sourceKey}`),
+          Key: newKey
+        });
+        
+        await s3Client.send(copyCommand);
+        
+        // Delete the original object
+        const deleteCommand = new DeleteObjectCommand({
+          Bucket: bucketName,
+          Key: sourceKey
+        });
+        
+        await s3Client.send(deleteCommand);
+        
+        res.json({
+          message: 'File moved successfully',
+          sourceKey,
+          destinationKey: newKey
+        });
+      }
     } catch (error) {
-      console.error('Error moving file:', error);
-      res.status(500).json({ error: 'Failed to move file', details: (error as Error).message });
+      console.error('Error moving file/folder:', error);
+      res.status(500).json({ error: 'Failed to move file/folder', details: (error as Error).message });
     }
   });
 

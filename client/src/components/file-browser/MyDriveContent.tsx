@@ -26,6 +26,10 @@ interface MyDriveContentProps {
   onDrop: (sourceKeys: string[], destinationPath: string) => void;
   onUploadClick: () => void;
   onNewFolderClick: () => void;
+  onItemRename?: (item: S3Object) => void;
+  onItemDelete?: (item: S3Object) => void;
+  onItemMove?: (item: S3Object) => void;
+  onItemDownload?: (item: S3Object) => void;
 }
 
 const MyDriveContent: React.FC<MyDriveContentProps> = ({
@@ -47,6 +51,10 @@ const MyDriveContent: React.FC<MyDriveContentProps> = ({
   onDrop,
   onUploadClick,
   onNewFolderClick,
+  onItemRename,
+  onItemDelete,
+  onItemMove,
+  onItemDownload,
 }) => {
   // Find the selected file from the URL state
   const selectedFile = undefined; // columnViewSelectedFile 
@@ -162,8 +170,8 @@ const MyDriveContent: React.FC<MyDriveContentProps> = ({
               <button
                 onClick={() => onViewModeChange('grid')}
                 className={`p-2 rounded-lg transition-colors ${
-                  'grid' === 'grid' 
-                    ? 'text-gray-500 hover:text-gray-700 hover:bg-gray-100' 
+                  viewMode === 'grid' 
+                    ? 'bg-blue-100 text-blue-600' 
                     : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
                 }`}
               >
@@ -177,8 +185,8 @@ const MyDriveContent: React.FC<MyDriveContentProps> = ({
               <button
                 onClick={() => onViewModeChange('list')}
                 className={`p-2 rounded-lg transition-colors ${
-                  'list' === 'list' 
-                    ? 'text-gray-500 hover:text-gray-700 hover:bg-gray-100' 
+                  viewMode === 'list' 
+                    ? 'bg-blue-100 text-blue-600' 
                     : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
                 }`}
               >
@@ -194,7 +202,7 @@ const MyDriveContent: React.FC<MyDriveContentProps> = ({
               <button
                 onClick={() => onViewModeChange('column')}
                 className={`p-2 rounded-lg transition-colors ${
-                  'column' === 'column' 
+                  viewMode === 'column' 
                     ? 'bg-blue-100 text-blue-600' 
                     : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
                 }`}
@@ -215,6 +223,10 @@ const MyDriveContent: React.FC<MyDriveContentProps> = ({
               currentPath={currentPath}
               selectedPath={""}
               onPathChange={handleColumnPathChange}
+              onItemRename={onItemRename}
+              onItemDelete={onItemDelete}
+              onItemMove={onItemMove}
+              onItemDownload={onItemDownload}
             />
             
             {/* Empty right pane - no preview */}
@@ -311,7 +323,7 @@ const MyDriveContent: React.FC<MyDriveContentProps> = ({
               <button
                 onClick={() => onViewModeChange('column')}
                 className={`p-2 rounded-lg transition-colors ${
-                  false 
+                  viewMode === 'column' 
                     ? 'bg-blue-100 text-blue-600' 
                     : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
                 }`}
@@ -345,6 +357,10 @@ const MyDriveContent: React.FC<MyDriveContentProps> = ({
                   onFileContextMenu={onFileContextMenu}
                   onFolderContextMenu={onFolderContextMenu}
                   onDrop={onDrop}
+                  onItemRename={onItemRename}
+                  onItemDelete={onItemDelete}
+                  onItemMove={onItemMove}
+                  onItemDownload={onItemDownload}
                 />
               )}
               
@@ -360,6 +376,10 @@ const MyDriveContent: React.FC<MyDriveContentProps> = ({
                   onFolderContextMenu={onFolderContextMenu}
                   onSort={onSort}
                   onDrop={onDrop}
+                  onItemRename={onItemRename}
+                  onItemDelete={onItemDelete}
+                  onItemMove={onItemMove}
+                  onItemDownload={onItemDownload}
                 />
               )}
             </>
