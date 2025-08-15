@@ -2,6 +2,7 @@ import React, { useState, useRef } from "react";
 import { S3Object } from "../../types";
 import { truncateFolderName } from "../../lib/utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import FolderMenu from "./FolderMenu";
 
 interface FileListProps {
   files: S3Object[];
@@ -10,6 +11,10 @@ interface FileListProps {
   onFolderClick: (folder: S3Object) => void;
   onFileContextMenu: (file: S3Object, e: React.MouseEvent) => void;
   onFolderContextMenu: (folder: S3Object, e: React.MouseEvent) => void;
+  onFolderRename?: (folder: S3Object) => void;
+  onFolderDelete?: (folder: S3Object) => void;
+  onFolderMove?: (folder: S3Object) => void;
+  onFolderDownload?: (folder: S3Object) => void;
   sortBy: string;
   sortDirection: "asc" | "desc";
   onSort: (column: string) => void;
@@ -24,6 +29,10 @@ const FileList: React.FC<FileListProps> = ({
   onFolderClick,
   onFileContextMenu,
   onFolderContextMenu,
+  onFolderRename,
+  onFolderDelete,
+  onFolderMove,
+  onFolderDownload,
   sortBy,
   sortDirection,
   onSort,
@@ -262,28 +271,40 @@ const FileList: React.FC<FileListProps> = ({
               <TableCell>-</TableCell>
               <TableCell>{formatDate(folder.lastModified)}</TableCell>
               <TableCell className="text-right">
-                <button 
-                  className="text-gray-400 hover:text-gray-600"
-                  onClick={(e) => {
-                    e.stopPropagation(); // Prevent folder click
-                    onFolderContextMenu(folder, e);
-                  }}
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    className="h-5 w-5"
+                {onFolderRename && onFolderDelete ? (
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <FolderMenu
+                      folder={folder}
+                      onRename={onFolderRename}
+                      onDelete={onFolderDelete}
+                      onMove={onFolderMove}
+                      onDownload={onFolderDownload}
+                    />
+                  </div>
+                ) : (
+                  <button 
+                    className="text-gray-400 hover:text-gray-600"
+                    onClick={(e) => {
+                      e.stopPropagation(); // Prevent folder click
+                      onFolderContextMenu(folder, e);
+                    }}
                   >
-                    <circle cx="12" cy="12" r="1" />
-                    <circle cx="19" cy="12" r="1" />
-                    <circle cx="5" cy="12" r="1" />
-                  </svg>
-                </button>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="h-5 w-5"
+                    >
+                      <circle cx="12" cy="12" r="1" />
+                      <circle cx="19" cy="12" r="1" />
+                      <circle cx="5" cy="12" r="1" />
+                    </svg>
+                  </button>
+                )}
               </TableCell>
             </TableRow>
           ))}

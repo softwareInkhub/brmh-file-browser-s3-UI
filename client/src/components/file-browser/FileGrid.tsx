@@ -2,6 +2,7 @@ import React, { useRef, useState } from "react";
 import { S3Object } from "../../types";
 import { truncateFolderName } from "../../lib/utils";
 import { Grid3X3, List, MoreVertical, Star, Download, Share2, Trash2, Edit3, FolderOpen } from "lucide-react";
+import FolderMenu from "./FolderMenu";
 
 interface FileGridProps {
   files: S3Object[];
@@ -11,6 +12,10 @@ interface FileGridProps {
   onFolderClick: (folder: S3Object) => void;
   onFileContextMenu: (item: S3Object, e: React.MouseEvent) => void;
   onFolderContextMenu: (item: S3Object, e: React.MouseEvent) => void;
+  onFolderRename?: (folder: S3Object) => void;
+  onFolderDelete?: (folder: S3Object) => void;
+  onFolderMove?: (folder: S3Object) => void;
+  onFolderDownload?: (folder: S3Object) => void;
   onDrop?: (sourceKeys: string[], destinationPath: string) => void;
   currentPath?: string;
 }
@@ -25,6 +30,10 @@ const FileGrid: React.FC<FileGridProps> = ({
   onFolderClick,
   onFileContextMenu,
   onFolderContextMenu,
+  onFolderRename,
+  onFolderDelete,
+  onFolderMove,
+  onFolderDownload,
   onDrop,
   currentPath,
 }) => {
@@ -240,9 +249,19 @@ const FileGrid: React.FC<FileGridProps> = ({
       
       {/* Hover actions */}
       <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-        <button className="p-1.5 bg-white/80 backdrop-blur-sm rounded-lg shadow-sm hover:bg-white border border-gray-200">
-          <MoreVertical className="w-4 h-4 text-gray-600" />
-        </button>
+        {isFolder && onFolderRename && onFolderDelete ? (
+          <FolderMenu
+            folder={item}
+            onRename={onFolderRename}
+            onDelete={onFolderDelete}
+            onMove={onFolderMove}
+            onDownload={onFolderDownload}
+          />
+        ) : (
+          <button className="p-1.5 bg-white/80 backdrop-blur-sm rounded-lg shadow-sm hover:bg-white border border-gray-200">
+            <MoreVertical className="w-4 h-4 text-gray-600" />
+          </button>
+        )}
       </div>
     </div>
   );
@@ -287,9 +306,19 @@ const FileGrid: React.FC<FileGridProps> = ({
         <button className="p-1.5 hover:bg-gray-200 rounded">
           <Share2 className="w-4 h-4 text-gray-600" />
         </button>
-        <button className="p-1.5 hover:bg-gray-200 rounded">
-          <MoreVertical className="w-4 h-4 text-gray-600" />
-        </button>
+        {isFolder && onFolderRename && onFolderDelete ? (
+          <FolderMenu
+            folder={item}
+            onRename={onFolderRename}
+            onDelete={onFolderDelete}
+            onMove={onFolderMove}
+            onDownload={onFolderDownload}
+          />
+        ) : (
+          <button className="p-1.5 hover:bg-gray-200 rounded">
+            <MoreVertical className="w-4 h-4 text-gray-600" />
+          </button>
+        )}
       </div>
     </div>
   );

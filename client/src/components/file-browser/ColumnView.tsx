@@ -3,10 +3,15 @@ import { ChevronRight, ChevronDown, Folder, FolderOpen } from "lucide-react";
 import { TreeNode } from "../../types";
 import { listFiles } from "../../lib/s3Service";
 import { getFileIcon } from "../../lib/mimeTypes";
+import FolderMenu from "./FolderMenu";
 
 interface ColumnViewProps {
   onFileClick: (file: TreeNode) => void;
   onFolderClick: (folder: TreeNode) => void;
+  onFolderRename?: (folder: TreeNode) => void;
+  onFolderDelete?: (folder: TreeNode) => void;
+  onFolderMove?: (folder: TreeNode) => void;
+  onFolderDownload?: (folder: TreeNode) => void;
   currentPath: string;
   selectedPath?: string;
   onPathChange?: (path: string) => void;
@@ -15,6 +20,10 @@ interface ColumnViewProps {
 const ColumnView: React.FC<ColumnViewProps> = ({
   onFileClick,
   onFolderClick,
+  onFolderRename,
+  onFolderDelete,
+  onFolderMove,
+  onFolderDownload,
   currentPath,
   selectedPath = "",
   onPathChange,
@@ -188,7 +197,7 @@ const ColumnView: React.FC<ColumnViewProps> = ({
       <div key={node.key} className="select-none">
         <div
           className={`
-            flex items-center px-3 py-2 text-sm cursor-pointer rounded-md transition-colors
+            group flex items-center px-3 py-2 text-sm cursor-pointer rounded-md transition-colors
             ${isSelected 
               ? 'bg-blue-50 text-blue-700 border border-blue-200' 
               : 'hover:bg-gray-50 text-gray-700'
@@ -229,6 +238,27 @@ const ColumnView: React.FC<ColumnViewProps> = ({
           
           {/* Name */}
           <span className="truncate flex-1">{node.name}</span>
+          
+          {/* Folder Menu */}
+          {node.type === 'folder' && onFolderRename && onFolderDelete && (
+            <div className="ml-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+              <FolderMenu
+                folder={{
+                  key: node.key,
+                  name: node.name,
+                  type: 'folder',
+                  size: node.size,
+                  lastModified: node.lastModified,
+                  etag: node.etag
+                }}
+                onRename={(folder) => onFolderRename(node)}
+                onDelete={(folder) => onFolderDelete(node)}
+                onMove={onFolderMove ? (folder) => onFolderMove(node) : undefined}
+                onDownload={onFolderDownload ? (folder) => onFolderDownload(node) : undefined}
+                align="left"
+              />
+            </div>
+          )}
         </div>
         
         {/* Children */}
