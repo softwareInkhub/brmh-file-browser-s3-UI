@@ -11,7 +11,7 @@ import TrashFiles from "@/pages/TrashFiles";
 import SharedFiles from "@/pages/SharedFiles";
 
 // Component wrappers to adapt to wouter Router's component expectation
-const FileBrowserWrapper = (props: RouteComponentProps) => <FileBrowser initialPrefix="" {...props} />;
+const FileBrowserWrapper = (props: RouteComponentProps) => <FileBrowser {...props} />;
 const NotFoundWrapper = (props: RouteComponentProps) => <NotFound title="Page Not Found" message="Sorry, the page you're looking for doesn't exist." {...props} />;
 
 function Router() {

@@ -48,10 +48,10 @@ const TAB_CONFIG = {
 };
 
 export interface FileBrowserProps {
-  initialPrefix?: string;
+  // Props removed - state is now managed through URL
 }
 
-const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
+const FileBrowser: React.FC<FileBrowserProps> = () => {
   // Browser history management
   const {
     currentState,
@@ -63,6 +63,10 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
     openRenameModal,
     openMoveModal,
     openDeleteModal,
+    openFileTab,
+    closeFileTab,
+    reorderTabs,
+    openNavigationTab,
     updateSearchTerm,
     updateViewMode,
     updateSorting,
@@ -78,6 +82,7 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
     goForward,
     canGoBack,
     canGoForward,
+    updateHistory,
   } = useBrowserHistory();
 
   // Local state (not managed by history)
@@ -97,18 +102,8 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
   const [starredItems, setStarredItems] = useState<Set<string>>(new Set());
   const [availableFileTypes, setAvailableFileTypes] = useState<string[]>([]);
   
-  // Tab management
-  const [tabs, setTabs] = useState<Tab[]>([
-    {
-      id: "my-drive",
-      label: "My BRMH Drive",
-      icon: Home,
-      isActive: true,
-      type: 'navigation'
-    }
-  ]);
-
-  // File preview tabs management
+  // Tab management - sync with browser history
+  const [tabs, setTabs] = useState<Tab[]>([]);
   const [filePreviewTabs, setFilePreviewTabs] = useState<Map<string, S3Object>>(new Map());
   const [filePreviewUrls, setFilePreviewUrls] = useState<Map<string, string>>(new Map());
 
@@ -134,29 +129,14 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
       console.error("Error getting preview URL:", error);
     }
 
-    // Add tab to tabs array
-    const fileName = file.key.split("/").pop() || file.key;
-    const newTab: Tab = {
-      id: tabId,
-      label: fileName,
-      icon: FileText, // Will be overridden by TabManager
-      isActive: false,
-      type: 'file-preview',
-      fileKey: file.key
-    };
-
-    setTabs(prev => [...prev, newTab]);
-    
-    // Switch to the new tab
-    handleTabClick(tabId);
+    // Use browser history to open the tab
+    openFileTab(file.key);
   };
 
   // Close file preview tab
   const closeFilePreviewTab = (tabId: string) => {
-    // Get current tabs before removal to determine which tab to switch to
-    const currentTabs = tabs;
-    const closedTabIndex = currentTabs.findIndex(tab => tab.id === tabId);
-    const wasActiveTab = currentState.activeTabId === tabId;
+    // Extract file key from tab ID
+    const fileKey = tabId.replace('file-', '');
     
     // Remove from file preview tabs
     setFilePreviewTabs(prev => {
@@ -172,35 +152,8 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
       return newMap;
     });
 
-    // Remove from tabs array
-    setTabs(prev => prev.filter(tab => tab.id !== tabId));
-
-    // If the closed tab was active, switch to the previous tab or first available tab
-    if (wasActiveTab) {
-      const remainingTabs = currentTabs.filter(tab => tab.id !== tabId);
-      if (remainingTabs.length > 0) {
-        // Try to switch to the previous tab (tab before the closed one)
-        let targetTabId: string;
-        if (closedTabIndex > 0) {
-          // Switch to the tab before the closed one
-          targetTabId = currentTabs[closedTabIndex - 1].id;
-        } else {
-          // If closed tab was first, switch to the next tab
-          targetTabId = currentTabs[closedTabIndex + 1]?.id || remainingTabs[0].id;
-        }
-        
-        // Ensure the target tab still exists in remaining tabs
-        if (remainingTabs.find(tab => tab.id === targetTabId)) {
-          handleTabClick(targetTabId);
-        } else {
-          // Fallback to first remaining tab
-          handleTabClick(remainingTabs[0].id);
-        }
-      } else {
-        // If no tabs remain, ensure "my-drive" is active
-        handleTabClick('my-drive');
-      }
-    }
+    // Use browser history to close the tab
+    closeFileTab(fileKey);
   };
   
   // Track API errors for better error handling
@@ -216,13 +169,53 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
     details: ""
   });
 
-  // Sync tab active state with history
+  // Sync tabs with browser history state
   useEffect(() => {
-    setTabs(prev => prev.map(tab => ({
-      ...tab,
-      isActive: tab.id === currentState.activeTabId
-    })));
-  }, [currentState.activeTabId]);
+    console.log('🔄 Syncing tabs with browser history state:', {
+      openTabs: currentState.openTabs,
+      activeTabId: currentState.activeTabId
+    });
+    
+    const newTabs: Tab[] = [];
+    
+    // Add navigation tabs first
+    const navigationTabs = ['my-drive', 'recent', 'starred', 'shared', 'trash', 'settings'];
+    navigationTabs.forEach(tabId => {
+      if (currentState.openTabs.includes(tabId)) {
+        const config = TAB_CONFIG[tabId as keyof typeof TAB_CONFIG];
+        if (config) {
+          newTabs.push({
+            id: tabId,
+            label: config.label,
+            icon: config.icon,
+            isActive: tabId === currentState.activeTabId,
+            type: 'navigation'
+          });
+        }
+      }
+    });
+    
+    // Add file preview tabs
+    currentState.openTabs.forEach(tabId => {
+      if (tabId.startsWith('file-')) {
+        const file = filePreviewTabs.get(tabId);
+        if (file) {
+          const fileName = file.key.split("/").pop() || file.key;
+          newTabs.push({
+            id: tabId,
+            label: fileName,
+            icon: FileText,
+            isActive: tabId === currentState.activeTabId,
+            type: 'file-preview',
+            fileKey: file.key
+          });
+        }
+      }
+    });
+    
+    console.log('📋 Created tabs:', newTabs);
+    setTabs(newTabs);
+  }, [currentState.openTabs, currentState.activeTabId, filePreviewTabs]);
 
   // Sync selected item with history
   useEffect(() => {
@@ -323,21 +316,18 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
 
   // Tab handlers
   const handleTabOpen = (tabId: string) => {
-    const existingTab = tabs.find(tab => tab.id === tabId);
-    if (!existingTab) {
-      const config = TAB_CONFIG[tabId as keyof typeof TAB_CONFIG];
-      if (config) {
-        const newTab: Tab = {
-          id: tabId,
-          label: config.label,
-          icon: config.icon,
-          isActive: false,
-          type: 'navigation'
-        };
-        setTabs(prev => [...prev, newTab]);
-      }
+    console.log('🔄 Opening tab:', tabId);
+    
+    // Check if tab already exists in browser history state
+    const existingTabInHistory = currentState.openTabs.includes(tabId);
+    
+    if (!existingTabInHistory) {
+      // Add tab to browser history state and make it active
+      openNavigationTab(tabId, false);
+    } else {
+      // Tab exists, just navigate to it
+      navigateToTab(tabId);
     }
-    navigateToTab(tabId);
   };
 
   // Tab click handler
@@ -354,6 +344,8 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
 
   // Tab close handler
   const handleTabClose = (tabId: string) => {
+    console.log('🔄 Closing tab:', tabId);
+    
     // Check if it's a file preview tab
     if (tabId.startsWith('file-')) {
       closeFilePreviewTab(tabId);
@@ -364,51 +356,37 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
         return;
       }
       
-      // For other navigation tabs, remove them and switch to previous tab
-      const currentTabs = tabs;
-      const closedTabIndex = currentTabs.findIndex(tab => tab.id === tabId);
-      const wasActiveTab = currentState.activeTabId === tabId;
-      
-      // Remove the tab from the tabs array
-      setTabs(prev => prev.filter(tab => tab.id !== tabId));
+      // Remove the tab from browser history state
+      const updatedState = { ...currentState };
+      updatedState.openTabs = updatedState.openTabs.filter(tab => tab !== tabId);
       
       // If the closed tab was active, switch to the previous tab
-      if (wasActiveTab) {
-        const remainingTabs = currentTabs.filter(tab => tab.id !== tabId);
-        if (remainingTabs.length > 0) {
-          // Try to switch to the previous tab (tab before the closed one)
-          let targetTabId: string;
-          if (closedTabIndex > 0) {
-            // Switch to the tab before the closed one
-            targetTabId = currentTabs[closedTabIndex - 1].id;
-          } else {
-            // If closed tab was first, switch to the next tab
-            targetTabId = currentTabs[closedTabIndex + 1]?.id || remainingTabs[0].id;
-          }
-          
-          // Ensure the target tab still exists in remaining tabs
-          if (remainingTabs.find(tab => tab.id === targetTabId)) {
-            handleTabClick(targetTabId);
-          } else {
-            // Fallback to first remaining tab
-            handleTabClick(remainingTabs[0].id);
-          }
+      if (updatedState.activeTabId === tabId) {
+        const currentIndex = currentState.openTabs.indexOf(tabId);
+        if (currentIndex > 0) {
+          // Switch to the tab before the closed one
+          updatedState.activeTabId = currentState.openTabs[currentIndex - 1];
+        } else if (updatedState.openTabs.length > 0) {
+          // Switch to the next tab or first available
+          updatedState.activeTabId = currentState.openTabs[currentIndex + 1] || updatedState.openTabs[0];
         } else {
-          // If no tabs remain, ensure "my-drive" is active
-          handleTabClick('my-drive');
+          // No tabs left, switch to my-drive
+          updatedState.activeTabId = 'my-drive';
+          updatedState.openTabs = ['my-drive'];
         }
       }
+      
+      // Update browser history state using the hook's methods
+      updateHistory({
+        openTabs: updatedState.openTabs,
+        activeTabId: updatedState.activeTabId
+      }, true); // Use replace to update URL immediately
     }
   };
 
   // Tab reorder handler
   const handleTabReorder = (fromIndex: number, toIndex: number) => {
-    setTabs(prev => {
-      const newTabs = [...prev];
-      const [movedTab] = newTabs.splice(fromIndex, 1);
-      newTabs.splice(toIndex, 0, movedTab);
-      return newTabs;
-    });
+    reorderTabs(fromIndex, toIndex);
   };
 
   // Helper to detect AWS S3 errors
@@ -532,6 +510,58 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
     fetchFiles();
     fetchAllFolders();
   }, [fetchFiles, fetchAllFolders]);
+
+  // Restore file preview tabs from browser history
+  useEffect(() => {
+    if (currentState.openTabs && currentState.openTabs.length > 0) {
+      // Find file preview tabs that need to be restored
+      const fileTabs = currentState.openTabs.filter(tabId => tabId.startsWith('file-'));
+      
+      fileTabs.forEach(tabId => {
+        const fileKey = tabId.replace('file-', '');
+        if (!filePreviewTabs.has(tabId)) {
+          // We need to restore this file tab
+          // For now, we'll create a placeholder S3Object
+          // In a real implementation, you might want to fetch the file metadata
+          const placeholderFile: S3Object = {
+            key: fileKey,
+            name: fileKey.split("/").pop() || fileKey,
+            size: 0,
+            type: "Unknown"
+          };
+          
+          setFilePreviewTabs(prev => new Map(prev).set(tabId, placeholderFile));
+          
+          // Generate preview URL
+          getFilePreviewUrl(fileKey).then(preview => {
+            setFilePreviewUrls(prev => new Map(prev).set(tabId, preview.url));
+          }).catch(error => {
+            console.error("Error getting preview URL for restored tab:", error);
+          });
+        }
+      });
+    }
+  }, [currentState.openTabs, filePreviewTabs]);
+
+  // Prevent hard reloads and ensure client routing
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const link = target.closest('a');
+      
+      if (link && link.href && link.href.startsWith(window.location.origin)) {
+        e.preventDefault();
+        const url = new URL(link.href);
+        setLocation(url.pathname + url.search);
+      }
+    };
+
+    document.addEventListener('click', handleClick);
+    
+    return () => {
+      document.removeEventListener('click', handleClick);
+    };
+  }, [setLocation]);
 
   // Fetch files whenever currentPath changes
   useEffect(() => {
@@ -1058,6 +1088,16 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
             
             {/* Tab Content */}
             <div className="flex-1">
+              {(() => {
+                console.log('🎯 Rendering tab content for:', currentState.activeTabId);
+                console.log('📋 Current state:', {
+                  activeTabId: currentState.activeTabId,
+                  openTabs: currentState.openTabs,
+                  tabsLength: tabs.length
+                });
+                return null;
+              })()}
+              
               {currentState.activeTabId === "my-drive" && (
                 <MyDriveContent
                   files={sortedFiles}
@@ -1086,6 +1126,24 @@ const FileBrowser: React.FC<FileBrowserProps> = ({ initialPrefix = "" }) => {
               {currentState.activeTabId === "shared" && <SharedContent />}
               {currentState.activeTabId === "trash" && <TrashContent />}
               {currentState.activeTabId === "settings" && <SettingsContent />}
+              
+              {/* Fallback content when no tab content matches */}
+              {!currentState.activeTabId.startsWith('file-') && 
+               currentState.activeTabId !== "my-drive" &&
+               currentState.activeTabId !== "recent" &&
+               currentState.activeTabId !== "starred" &&
+               currentState.activeTabId !== "shared" &&
+               currentState.activeTabId !== "trash" &&
+               currentState.activeTabId !== "settings" && (
+                <div className="flex-1 flex items-center justify-center">
+                  <div className="text-center">
+                    <h3 className="text-xl font-semibold text-gray-900 mb-2">Tab Not Found</h3>
+                    <p className="text-gray-500">The tab "{currentState.activeTabId}" could not be loaded.</p>
+                  </div>
+                </div>
+              )}
+              
+
               
               {/* File Preview Tabs */}
               {currentState.activeTabId.startsWith('file-') && (() => {

@@ -38,6 +38,36 @@ const ColumnView: React.FC<ColumnViewProps> = ({
     return null;
   }, []);
 
+  // Expand path to current location
+  const expandPathToCurrent = useCallback(async (targetPath: string) => {
+    if (!targetPath) return;
+
+    const pathSegments = targetPath.split('/').filter(Boolean);
+    let accumulatedPath = "";
+    const pathsToExpand: string[] = [];
+
+    // Build the path segments to expand
+    for (const segment of pathSegments) {
+      accumulatedPath += segment + '/';
+      pathsToExpand.push(accumulatedPath);
+    }
+
+    // Expand each path segment
+    for (const path of pathsToExpand) {
+      if (!expandedNodes.has(path)) {
+        await fetchTreeData(path);
+        setExpandedNodes(prev => new Set(prev).add(path));
+      }
+    }
+  }, [expandedNodes]);
+
+  // Expand path when currentPath changes
+  useEffect(() => {
+    if (currentPath) {
+      expandPathToCurrent(currentPath);
+    }
+  }, [currentPath, expandPathToCurrent]);
+
   const fetchTreeData = useCallback(async (prefix: string) => {
     try {
       setLoadingNodes(prev => new Set(prev).add(prefix));
@@ -101,7 +131,7 @@ const ColumnView: React.FC<ColumnViewProps> = ({
         });
       }
     } catch (error) {
-      console.error("Error fetching tree data:", error);
+      console.error('Error fetching tree data:', error);
     } finally {
       setLoadingNodes(prev => {
         const newSet = new Set(prev);
@@ -111,109 +141,80 @@ const ColumnView: React.FC<ColumnViewProps> = ({
     }
   }, []);
 
-  // Fetch initial tree data and refresh when current path changes
+  // Load initial data
   useEffect(() => {
     fetchTreeData("");
   }, [fetchTreeData]);
 
-  // Expand tree to show selected path
-  useEffect(() => {
-    if (selectedPath && selectedPath !== "") {
-      const pathParts = selectedPath.split("/").filter(Boolean);
-      const newExpanded = new Set(expandedNodes);
-      
-      // Expand all parent folders in the path
-      let currentPath = "";
-      for (let i = 0; i < pathParts.length; i++) {
-        currentPath += pathParts[i] + "/";
-        newExpanded.add(currentPath);
-        
-        // Fetch data for this path if not already loaded
-        const existingNode = findNodeByPath(treeData, currentPath);
-        if (!existingNode || !existingNode.children || existingNode.children.length === 0) {
-          fetchTreeData(currentPath);
-        }
-      }
-      
-      setExpandedNodes(newExpanded);
-    }
-  }, [selectedPath, expandedNodes, treeData, fetchTreeData, findNodeByPath]);
-
-  const toggleNode = useCallback((node: TreeNode) => {
+  const toggleNode = useCallback(async (node: TreeNode) => {
     if (node.type === 'folder') {
-      const newExpanded = new Set(expandedNodes);
+      const isExpanded = expandedNodes.has(node.key);
       
-      if (newExpanded.has(node.key)) {
+      if (isExpanded) {
         // Collapse
-        newExpanded.delete(node.key);
+        setExpandedNodes(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(node.key);
+          return newSet;
+        });
       } else {
         // Expand
-        newExpanded.add(node.key);
-        // Fetch children if not already loaded
         if (!node.children || node.children.length === 0) {
-          fetchTreeData(node.key);
+          await fetchTreeData(node.key);
         }
+        setExpandedNodes(prev => new Set(prev).add(node.key));
       }
-      
-      setExpandedNodes(newExpanded);
     }
   }, [expandedNodes, fetchTreeData]);
 
   const handleNodeClick = useCallback((node: TreeNode) => {
     if (node.type === 'folder') {
-      // For folders, toggle expand/collapse and update selected path
       toggleNode(node);
-      if (onPathChange) {
-        onPathChange(node.key);
-      }
+      onFolderClick?.(node);
     } else {
-      // For files, select for preview and update selected path to parent folder
       setSelectedFile(node);
       onFileClick(node);
-      if (onPathChange) {
-        // Get parent folder path from file key
-        const parentPath = node.key.substring(0, node.key.lastIndexOf('/') + 1);
-        onPathChange(parentPath);
-      }
     }
-  }, [toggleNode, onFileClick, onPathChange]);
+  }, [toggleNode, onFolderClick, onFileClick]);
 
   const renderNode = useCallback((node: TreeNode, level: number = 0) => {
     const isExpanded = expandedNodes.has(node.key);
     const isLoading = loadingNodes.has(node.key);
+    const isSelected = selectedFile?.key === node.key;
     const hasChildren = node.children && node.children.length > 0;
-    const canExpand = node.type === 'folder';
-    const isSelected = selectedPath === node.key || selectedFile?.key === node.key;
+    const canExpand = node.type === 'folder' && (hasChildren || !isExpanded);
 
     return (
       <div key={node.key} className="select-none">
         <div
-          className={`flex items-center px-2 py-1 hover:bg-gray-100 cursor-pointer rounded ${
-            isSelected ? 'bg-blue-50 text-blue-600' : ''
-          }`}
-          style={{ paddingLeft: `${level * 16 + 8}px` }}
+          className={`
+            flex items-center px-3 py-2 text-sm cursor-pointer rounded-md transition-colors
+            ${isSelected 
+              ? 'bg-blue-50 text-blue-700 border border-blue-200' 
+              : 'hover:bg-gray-50 text-gray-700'
+            }
+          `}
+          style={{ paddingLeft: `${level * 20 + 12}px` }}
           onClick={() => handleNodeClick(node)}
         >
-          {/* Expand/Collapse button */}
-          {canExpand && (
-            <button
-              className="w-4 h-4 mr-1 flex items-center justify-center"
-              onClick={(e) => {
-                e.stopPropagation();
-                toggleNode(node);
-              }}
-            >
+          {/* Expand/Collapse Icon */}
+          {node.type === 'folder' && (
+            <div className="w-4 h-4 mr-2 flex items-center justify-center">
               {isLoading ? (
-                <div className="w-3 h-3 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin" />
-              ) : isExpanded ? (
-                <ChevronDown className="w-3 h-3" />
+                <div className="w-3 h-3 border border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
+              ) : canExpand ? (
+                isExpanded ? (
+                  <ChevronDown className="w-4 h-4 text-gray-500" />
+                ) : (
+                  <ChevronRight className="w-4 h-4 text-gray-500" />
+                )
               ) : (
-                <ChevronRight className="w-3 h-3" />
+                <div className="w-4 h-4"></div>
               )}
-            </button>
+            </div>
           )}
           
-          {/* Icon */}
+          {/* File/Folder Icon */}
           <div className="w-4 h-4 mr-2 flex items-center justify-center">
             {node.type === 'folder' ? (
               isExpanded ? (
@@ -227,45 +228,23 @@ const ColumnView: React.FC<ColumnViewProps> = ({
           </div>
           
           {/* Name */}
-          <span className="text-sm truncate flex-1" title={node.name}>
-            {node.name}
-          </span>
+          <span className="truncate flex-1">{node.name}</span>
         </div>
         
         {/* Children */}
-        {isExpanded && node.children && (
+        {node.type === 'folder' && isExpanded && node.children && (
           <div>
             {node.children.map(child => renderNode(child, level + 1))}
           </div>
         )}
       </div>
     );
-  }, [expandedNodes, loadingNodes, selectedFile, handleNodeClick, toggleNode]);
+  }, [expandedNodes, loadingNodes, selectedFile, handleNodeClick]);
 
   return (
-    <div 
-      className="w-64 bg-white border-r border-gray-200 flex flex-col"
-      style={{ 
-        height: 'calc(100vh - 120px)', // Full viewport height minus tab bar and home bar
-        minHeight: 'calc(100vh - 120px)' // Ensure minimum height is maintained
-      }}
-    >
-      {/* Header */}
-      <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 flex-shrink-0">
-        <h3 className="text-sm font-medium text-gray-900">Explorer</h3>
-      </div>
-      
-      {/* Tree content with independent scrolling */}
-      <div 
-        className="flex-1 overflow-y-auto scrollbar-thin"
-        style={{ 
-          overscrollBehavior: 'contain', // Prevent scroll chaining to main page
-          scrollBehavior: 'smooth' // Enable smooth scrolling
-        }}
-      >
-        <div className="py-2">
-          {treeData.map(node => renderNode(node))}
-        </div>
+    <div className="w-80 bg-white border-r border-gray-200 overflow-y-auto">
+      <div className="p-2">
+        {treeData.map(node => renderNode(node))}
       </div>
     </div>
   );
