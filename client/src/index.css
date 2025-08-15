@@ -727,6 +727,45 @@ body {
   border-radius: 8px;
 }
 
+/* PDF Preview specific styles */
+.pdf-preview-root {
+  width: 100%;
+  min-height: 400px;
+  overflow: hidden;
+  position: relative;
+}
+
+.pdf-preview-root iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  border-radius: 8px;
+  background: white;
+}
+
+/* Video Preview specific styles */
+.video-preview-root {
+  width: 100%;
+  height: 100%;
+  min-height: 300px;
+  min-width: 400px;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.video-preview-root video {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 8px;
+  background: #000;
+}
+
 .file-preview-video {
   max-width: 100%;
   max-height: 100%;

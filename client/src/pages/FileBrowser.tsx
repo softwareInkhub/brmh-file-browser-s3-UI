@@ -800,8 +800,28 @@ const FileBrowser: React.FC<FileBrowserProps> = () => {
 
   // Rename file or folder
   const handleRename = async (newName: string) => {
-    const item = contextMenu.item;
-    if (!item) return;
+    // Get the item from context menu, selected item, or active file tab
+    let item = contextMenu.item;
+    
+    if (!item && currentState.selectedItemKey) {
+      // Try to find the item from the selected item key
+      const allItems = [...files, ...folders];
+      item = allItems.find(item => item.key === currentState.selectedItemKey);
+    }
+    
+    if (!item && currentState.activeTabId?.startsWith('file-')) {
+      // Try to get the item from the active file tab
+      item = filePreviewTabs.get(currentState.activeTabId);
+    }
+    
+    if (!item) {
+      toast({
+        title: "Error",
+        description: "No item selected for renaming",
+        variant: "destructive",
+      });
+      return;
+    }
     
     try {
       await renameFile(item.key, newName);
@@ -825,8 +845,28 @@ const FileBrowser: React.FC<FileBrowserProps> = () => {
 
   // Move file or folder
   const handleMove = async (destinationPath: string) => {
-    const item = contextMenu.item;
-    if (!item) return;
+    // Get the item from context menu, selected item, or active file tab
+    let item = contextMenu.item;
+    
+    if (!item && currentState.selectedItemKey) {
+      // Try to find the item from the selected item key
+      const allItems = [...files, ...folders];
+      item = allItems.find(item => item.key === currentState.selectedItemKey);
+    }
+    
+    if (!item && currentState.activeTabId?.startsWith('file-')) {
+      // Try to get the item from the active file tab
+      item = filePreviewTabs.get(currentState.activeTabId);
+    }
+    
+    if (!item) {
+      toast({
+        title: "Error",
+        description: "No item selected for moving",
+        variant: "destructive",
+      });
+      return;
+    }
     
     try {
       await moveFile(item.key, destinationPath);
@@ -850,8 +890,28 @@ const FileBrowser: React.FC<FileBrowserProps> = () => {
 
   // Delete file or folder (move to trash)
   const handleDelete = async () => {
-    const item = contextMenu.item;
-    if (!item) return;
+    // Get the item from context menu, selected item, or active file tab
+    let item = contextMenu.item;
+    
+    if (!item && currentState.selectedItemKey) {
+      // Try to find the item from the selected item key
+      const allItems = [...files, ...folders];
+      item = allItems.find(item => item.key === currentState.selectedItemKey);
+    }
+    
+    if (!item && currentState.activeTabId?.startsWith('file-')) {
+      // Try to get the item from the active file tab
+      item = filePreviewTabs.get(currentState.activeTabId);
+    }
+    
+    if (!item) {
+      toast({
+        title: "Error",
+        description: "No item selected for deletion",
+        variant: "destructive",
+      });
+      return;
+    }
     
     try {
       await moveToTrash(item.key);
@@ -875,10 +935,31 @@ const FileBrowser: React.FC<FileBrowserProps> = () => {
 
   // Download file
   const handleDownload = () => {
-    // if (!selectedItem) return; // This state variable was removed
+    // Get the item from context menu, selected item, or active file tab
+    let item = contextMenu.item;
+    
+    if (!item && currentState.selectedItemKey) {
+      // Try to find the item from the selected item key
+      const allItems = [...files, ...folders];
+      item = allItems.find(item => item.key === currentState.selectedItemKey);
+    }
+    
+    if (!item && currentState.activeTabId?.startsWith('file-')) {
+      // Try to get the item from the active file tab
+      item = filePreviewTabs.get(currentState.activeTabId);
+    }
+    
+    if (!item) {
+      toast({
+        title: "Error",
+        description: "No item selected for download",
+        variant: "destructive",
+      });
+      return;
+    }
     
     try {
-      downloadFile(/* selectedItem.key */ "");
+      downloadFile(item.key, item.name);
     } catch (error) {
       toast({
         title: "Error",
@@ -890,18 +971,39 @@ const FileBrowser: React.FC<FileBrowserProps> = () => {
 
   // Star/unstar file
   const handleToggleStar = async () => {
-    // if (!selectedItem) return; // This state variable was removed
+    // Get the item from context menu, selected item, or active file tab
+    let item = contextMenu.item;
+    
+    if (!item && currentState.selectedItemKey) {
+      // Try to find the item from the selected item key
+      const allItems = [...files, ...folders];
+      item = allItems.find(item => item.key === currentState.selectedItemKey);
+    }
+    
+    if (!item && currentState.activeTabId?.startsWith('file-')) {
+      // Try to get the item from the active file tab
+      item = filePreviewTabs.get(currentState.activeTabId);
+    }
+    
+    if (!item) {
+      toast({
+        title: "Error",
+        description: "No item selected for starring",
+        variant: "destructive",
+      });
+      return;
+    }
     
     try {
-      const isCurrentlyStarred = starredItems.has(/* selectedItem.key */ "");
-      await toggleStar(/* selectedItem.key */ "", !isCurrentlyStarred);
+      const isCurrentlyStarred = starredItems.has(item.key);
+      await toggleStar(item.key, !isCurrentlyStarred);
       
       // Update local state
       const newStarredItems = new Set(starredItems);
       if (isCurrentlyStarred) {
-        newStarredItems.delete(/* selectedItem.key */ "");
+        newStarredItems.delete(item.key);
       } else {
-        newStarredItems.add(/* selectedItem.key */ "");
+        newStarredItems.add(item.key);
       }
       setStarredItems(newStarredItems);
       
@@ -912,7 +1014,7 @@ const FileBrowser: React.FC<FileBrowserProps> = () => {
     } catch (error) {
       toast({
         title: "Error",
-        description: `Failed to ${starredItems.has(/* selectedItem.key */ "") ? "unstar" : "star"} item: ${(error as Error).message}`,
+        description: `Failed to ${starredItems.has(item.key) ? "unstar" : "star"} item: ${(error as Error).message}`,
         variant: "destructive",
       });
     }
@@ -1193,14 +1295,46 @@ const FileBrowser: React.FC<FileBrowserProps> = () => {
         isOpen={currentState.isRenameModalOpen}
         onClose={closeRenameModal}
         onRename={handleRename}
-        item={contextMenu.item}
+        item={(() => {
+          // Get the item from context menu, selected item, or active file tab
+          let item = contextMenu.item;
+          
+          if (!item && currentState.selectedItemKey) {
+            // Try to find the item from the selected item key
+            const allItems = [...files, ...folders];
+            item = allItems.find(item => item.key === currentState.selectedItemKey);
+          }
+          
+          if (!item && currentState.activeTabId?.startsWith('file-')) {
+            // Try to get the item from the active file tab
+            item = filePreviewTabs.get(currentState.activeTabId);
+          }
+          
+          return item;
+        })()}
       />
 
       <MoveModal
         isOpen={currentState.isMoveModalOpen}
         onClose={closeMoveModal}
         onMove={handleMove}
-        item={contextMenu.item}
+        item={(() => {
+          // Get the item from context menu, selected item, or active file tab
+          let item = contextMenu.item;
+          
+          if (!item && currentState.selectedItemKey) {
+            // Try to find the item from the selected item key
+            const allItems = [...files, ...folders];
+            item = allItems.find(item => item.key === currentState.selectedItemKey);
+          }
+          
+          if (!item && currentState.activeTabId?.startsWith('file-')) {
+            // Try to get the item from the active file tab
+            item = filePreviewTabs.get(currentState.activeTabId);
+          }
+          
+          return item;
+        })()}
         folders={allFolders}
       />
 
@@ -1208,7 +1342,23 @@ const FileBrowser: React.FC<FileBrowserProps> = () => {
         isOpen={currentState.isDeleteModalOpen}
         onClose={closeDeleteModal}
         onDelete={handleDelete}
-        item={contextMenu.item}
+        item={(() => {
+          // Get the item from context menu, selected item, or active file tab
+          let item = contextMenu.item;
+          
+          if (!item && currentState.selectedItemKey) {
+            // Try to find the item from the selected item key
+            const allItems = [...files, ...folders];
+            item = allItems.find(item => item.key === currentState.selectedItemKey);
+          }
+          
+          if (!item && currentState.activeTabId?.startsWith('file-')) {
+            // Try to get the item from the active file tab
+            item = filePreviewTabs.get(currentState.activeTabId);
+          }
+          
+          return item;
+        })()}
       />
 
       <ContextMenu

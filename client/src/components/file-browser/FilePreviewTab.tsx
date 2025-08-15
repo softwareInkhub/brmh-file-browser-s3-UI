@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { S3Object } from "../../types";
 import { Edit, Loader2, Share2 } from "lucide-react";
@@ -17,6 +17,182 @@ interface FilePreviewTabProps {
   isStarred: boolean;
 }
 
+// Custom hook to calculate available height for PDF preview
+const usePdfPreviewHeight = () => {
+  const [availableHeight, setAvailableHeight] = useState<number>(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastHeightRef = useRef<number>(0);
+  const isActiveRef = useRef<boolean>(false);
+
+  const calculateHeight = useCallback(() => {
+    if (!containerRef.current || !isActiveRef.current) return;
+
+    const container = containerRef.current;
+    const rect = container.getBoundingClientRect();
+    const viewportHeight = window.innerHeight;
+    const containerTop = rect.top;
+    
+    // Calculate available height: viewport height minus the space above the container
+    const height = viewportHeight - containerTop;
+    
+    // Ensure minimum height and apply some padding
+    const minHeight = 400; // Minimum height in pixels
+    const finalHeight = Math.max(height - 20, minHeight); // 20px padding
+    
+    // Only update if height actually changed significantly (more than 10px)
+    if (Math.abs(finalHeight - lastHeightRef.current) > 10) {
+      lastHeightRef.current = finalHeight;
+      setAvailableHeight(finalHeight);
+    }
+  }, []);
+
+  const throttledCalculateHeight = useCallback(() => {
+    if (!isActiveRef.current) return;
+    
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    
+    timeoutRef.current = setTimeout(() => {
+      calculateHeight();
+    }, 200); // Much higher throttling to reduce frequency
+  }, [calculateHeight]);
+
+  useEffect(() => {
+    // Only set up observers if this is actually a PDF file
+    isActiveRef.current = true;
+    
+    // Initial calculation
+    calculateHeight();
+
+    // Set up resize observer for the container with passive option
+    if (containerRef.current) {
+      resizeObserverRef.current = new ResizeObserver((entries) => {
+        // Use requestAnimationFrame to batch updates
+        requestAnimationFrame(() => {
+          throttledCalculateHeight();
+        });
+      });
+      resizeObserverRef.current.observe(containerRef.current);
+    }
+
+    // Set up window resize listener with passive option
+    const handleResize = () => {
+      requestAnimationFrame(() => {
+        throttledCalculateHeight();
+      });
+    };
+    
+    window.addEventListener('resize', handleResize, { passive: true });
+
+    return () => {
+      isActiveRef.current = false;
+      if (resizeObserverRef.current) {
+        resizeObserverRef.current.disconnect();
+      }
+      window.removeEventListener('resize', handleResize);
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, [throttledCalculateHeight]);
+
+  return { availableHeight, containerRef };
+};
+
+// Custom hook to calculate available dimensions for video preview
+const useVideoPreviewDimensions = () => {
+  const [availableDimensions, setAvailableDimensions] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
+  const containerRef = useRef<HTMLDivElement>(null);
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastDimensionsRef = useRef<{ width: number; height: number }>({ width: 0, height: 0 });
+  const isActiveRef = useRef<boolean>(false);
+
+  const calculateDimensions = useCallback(() => {
+    if (!containerRef.current || !isActiveRef.current) return;
+
+    const container = containerRef.current;
+    const rect = container.getBoundingClientRect();
+    const viewportHeight = window.innerHeight;
+    const viewportWidth = window.innerWidth;
+    const containerTop = rect.top;
+    const containerLeft = rect.left;
+    
+    // Calculate available dimensions: viewport minus the space above and to the left of the container
+    const availableHeight = viewportHeight - containerTop - 20; // 20px padding
+    const availableWidth = viewportWidth - containerLeft - 20; // 20px padding
+    
+    // Ensure minimum dimensions
+    const minHeight = 300;
+    const minWidth = 400;
+    const finalHeight = Math.max(availableHeight, minHeight);
+    const finalWidth = Math.max(availableWidth, minWidth);
+    
+    // Only update if dimensions actually changed significantly (more than 15px)
+    if (Math.abs(finalWidth - lastDimensionsRef.current.width) > 15 || 
+        Math.abs(finalHeight - lastDimensionsRef.current.height) > 15) {
+      lastDimensionsRef.current = { width: finalWidth, height: finalHeight };
+      setAvailableDimensions({ width: finalWidth, height: finalHeight });
+    }
+  }, []);
+
+  const throttledCalculateDimensions = useCallback(() => {
+    if (!isActiveRef.current) return;
+    
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    
+    timeoutRef.current = setTimeout(() => {
+      calculateDimensions();
+    }, 200); // Much higher throttling to reduce frequency
+  }, [calculateDimensions]);
+
+  useEffect(() => {
+    // Only set up observers if this is actually a video file
+    isActiveRef.current = true;
+    
+    // Initial calculation
+    calculateDimensions();
+
+    // Set up resize observer for the container with passive option
+    if (containerRef.current) {
+      resizeObserverRef.current = new ResizeObserver((entries) => {
+        // Use requestAnimationFrame to batch updates
+        requestAnimationFrame(() => {
+          throttledCalculateDimensions();
+        });
+      });
+      resizeObserverRef.current.observe(containerRef.current);
+    }
+
+    // Set up window resize listener with passive option
+    const handleResize = () => {
+      requestAnimationFrame(() => {
+        throttledCalculateDimensions();
+      });
+    };
+    
+    window.addEventListener('resize', handleResize, { passive: true });
+
+    return () => {
+      isActiveRef.current = false;
+      if (resizeObserverRef.current) {
+        resizeObserverRef.current.disconnect();
+      }
+      window.removeEventListener('resize', handleResize);
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, [throttledCalculateDimensions]);
+
+  return { availableDimensions, containerRef: containerRef };
+};
+
 const FilePreviewTab: React.FC<FilePreviewTabProps> = ({
   file,
   previewUrl,
@@ -26,6 +202,7 @@ const FilePreviewTab: React.FC<FilePreviewTabProps> = ({
   onDelete,
   isStarred,
 }) => {
+
   const [isEditing, setIsEditing] = useState(false);
   const [fileContent, setFileContent] = useState("");
   const [isLoadingContent, setIsLoadingContent] = useState(false);
@@ -34,6 +211,23 @@ const FilePreviewTab: React.FC<FilePreviewTabProps> = ({
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   
   const canEdit = file ? isTextViewable(file.key) : false;
+  
+  // Get file name from key
+  const getFileName = (key: string): string => {
+    return key.split("/").pop() || key;
+  };
+  
+  // Determine file type for conditional hook usage
+  const fileType = file.type?.toLowerCase() || "";
+  const fileName = getFileName(file.key).toLowerCase();
+  const isPdfFile = fileType.includes("pdf") || fileName.endsWith(".pdf");
+  const isVideoFile = fileType.includes("video") || fileName.endsWith(".mp4") || fileName.endsWith(".webm") || fileName.endsWith(".mov") || fileName.endsWith(".avi");
+  
+  // Use the custom hook for PDF height calculation only when needed
+  const { availableHeight, containerRef } = usePdfPreviewHeight();
+  
+  // Use the custom hook for video dimensions calculation only when needed
+  const { availableDimensions, containerRef: videoContainerRef } = useVideoPreviewDimensions();
   
   // Reset editing state when file changes
   useEffect(() => {
@@ -86,11 +280,6 @@ const FilePreviewTab: React.FC<FilePreviewTabProps> = ({
   const handleCancelEdit = () => {
     setIsEditing(false);
     setEditorError(null);
-  };
-
-  // Get file name from key
-  const getFileName = (key: string): string => {
-    return key.split("/").pop() || key;
   };
 
   // Format file size
@@ -165,8 +354,7 @@ const FilePreviewTab: React.FC<FilePreviewTabProps> = ({
       );
     }
 
-    const fileType = file.type?.toLowerCase() || "";
-    const fileName = getFileName(file.key).toLowerCase();
+         // Use the already declared fileType and fileName variables
 
     if (
       fileType.includes("image") ||
@@ -190,11 +378,23 @@ const FilePreviewTab: React.FC<FilePreviewTabProps> = ({
       fileName.endsWith(".pdf")
     ) {
       return (
-        <div className="w-full h-full">
+        <div 
+          className="pdf-preview-root w-full"
+          style={{ 
+            height: `${availableHeight}px`,
+            minHeight: '400px'
+          }}
+        >
           <iframe
             src={previewUrl}
             className="file-preview-iframe"
             title={getFileName(file.key)}
+            style={{
+              width: '100%',
+              height: '100%',
+              border: 'none',
+              borderRadius: '8px'
+            }}
           ></iframe>
         </div>
       );
@@ -206,13 +406,29 @@ const FilePreviewTab: React.FC<FilePreviewTabProps> = ({
       fileName.endsWith(".avi")
     ) {
       return (
-        <div className="w-full h-full flex items-center justify-center">
+        <div 
+          ref={videoContainerRef}
+          className="video-preview-root w-full h-full flex items-center justify-center"
+          style={{
+            width: `${availableDimensions.width}px`,
+            height: `${availableDimensions.height}px`,
+            maxWidth: '100%',
+            maxHeight: '100%'
+          }}
+        >
           <video
             src={previewUrl}
             controls
             className="file-preview-video"
             autoPlay={false}
             preload="metadata"
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'contain',
+              maxWidth: '100%',
+              maxHeight: '100%'
+            }}
           ></video>
         </div>
       );
@@ -373,7 +589,10 @@ const FilePreviewTab: React.FC<FilePreviewTabProps> = ({
         </div>
 
         {/* Preview Content */}
-        <div className="flex-1 overflow-auto bg-gray-50 relative">
+        <div 
+          ref={containerRef}
+          className="flex-1 overflow-auto bg-gray-50 relative"
+        >
           <div className="file-preview-container">
             {renderPreview()}
           </div>
@@ -406,7 +625,7 @@ const FilePreviewTab: React.FC<FilePreviewTabProps> = ({
                 <Share2 className="h-4 w-4 mr-1.5" />
                 Share
               </Button>
-              <Button variant="outline" size="sm" onClick={onRename}>
+                             <Button variant="outline" size="sm" onClick={onRename}>
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   viewBox="0 0 24 24"
@@ -422,12 +641,12 @@ const FilePreviewTab: React.FC<FilePreviewTabProps> = ({
                 </svg>
                 Rename
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onDelete}
-                className="text-red-600 hover:bg-red-50"
-              >
+                             <Button
+                 variant="outline"
+                 size="sm"
+                 onClick={onDelete}
+                 className="text-red-600 hover:bg-red-50"
+               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   viewBox="0 0 24 24"
